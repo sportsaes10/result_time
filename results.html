@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro de tiempos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+          <a href="./ranking.html" class="text-slate-400 hover:text-white text-sm font-medium">← Ranking</a>
+          <div class="font-black text-xl text-nowrap">⏱️ Registrar tiempos</div>
+      </div>
+      <a href="./athletes.html" class="bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold text-center text-nowrap ml-auto">
+        Registrar atletas
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6 grid gap-4">
+    <form id="resultForm" class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 grid gap-3">
+      <div class="grid gap-1">
+        <span class="text-sm text-slate-300">Atleta</span>
+        <input id="athleteSearch" type="text" required placeholder="Buscar por dorsal o nombre..."
+          class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" autocomplete="off" />
+        <input type="hidden" id="selectedAthleteId" />
+        <div id="athleteResults"
+          class="hidden mt-2 bg-slate-950 border border-slate-700 rounded-xl max-h-60 overflow-y-auto"></div>
+        <div class="text-xs text-slate-400 mt-1">Escribe el dorsal o nombre del atleta</div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">Prueba</span>
+          <input id="event_test" list="eventList" placeholder="Ej: 5K"
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+          <datalist id="eventList">
+            <option value="Carrera Obstaculos"></option>
+          </datalist>
+        </label>
+
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">Tiempo</span>
+          <div class="flex items-center gap-1">
+            <div class="grid text-center flex-1">
+              <input id="time_h" type="number" min="0" max="99" placeholder="00"
+                class="bg-slate-950 border border-slate-700 rounded-lg px-1 py-3 w-full text-center text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              <span class="text-[10px] text-slate-500 uppercase mt-1">Hrs</span>
+            </div>
+            <span class="font-bold text-slate-500 pb-4">:</span>
+            <div class="grid text-center flex-1">
+              <input id="time_m" type="number" min="0" max="59" placeholder="00" required
+                class="bg-slate-950 border border-slate-700 rounded-lg px-1 py-3 w-full text-center text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              <span class="text-[10px] text-slate-500 uppercase mt-1">Min</span>
+            </div>
+            <span class="font-bold text-slate-500 pb-4">:</span>
+            <div class="grid text-center flex-1">
+              <input id="time_s" type="number" min="0" max="59" placeholder="00" required
+                class="bg-slate-950 border border-slate-700 rounded-lg px-1 py-3 w-full text-center text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              <span class="text-[10px] text-slate-500 uppercase mt-1">Seg</span>
+            </div>
+            <span class="font-bold text-slate-500 pb-4">.</span>
+            <div class="grid text-center flex-1">
+              <input id="time_c" type="number" min="0" max="99" placeholder="00" required
+                class="bg-slate-950 border border-slate-700 rounded-lg px-1 py-3 w-full text-center text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+              <span class="text-[10px] text-slate-500 uppercase mt-1">Cen</span>
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">Registrado por (opcional)</span>
+          <input id="recorded_by" placeholder="Juez 1"
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">Observaciones (opcional)</span>
+          <input id="notes" placeholder="Ej: penalización..."
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="submitBtn"
+          class="flex-1 bg-emerald-400 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-emerald-300 transition-colors">
+          Guardar tiempo
+        </button>
+        <button id="cancelEditBtn" type="button"
+          class="hidden flex-none bg-slate-700 text-white rounded-xl px-4 py-3 font-bold hover:bg-slate-600 transition-colors">
+          Cancelar
+        </button>
+      </div>
+
+      <div id="msg" class="text-sm text-slate-300"></div>
+    </form>
+
+    <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+      <div class="flex items-center gap-2">
+        <div class="font-bold">Últimos tiempos registrados</div>
+        <button id="reload"
+          class="ml-auto bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold">Refrescar</button>
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-slate-300">
+            <tr class="[&>th]:py-2 [&>th]:px-3 text-left border-b border-slate-800">
+              <th>Atleta</th>
+              <th>Hora Meta</th>
+              <th>Tiempo</th>
+              <th>Fecha</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="mt-auto py-6 border-t border-slate-800 text-center">
+    <div class="flex flex-col items-center justify-center gap-2">
+       <p class="text-slate-500 text-sm">Desarrollado por</p>
+       <img src="./logos/sportsaes_blanco.png" alt="SPORTSAES SAS" class="h-12 opacity-80 hover:opacity-100 transition-opacity">
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Esperar a que supabaseClient esté disponible
+      while (!window.supabaseClient) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      const supabase = window.supabaseClient;
+
+      let currentEventId = null;
+      
+       // --- CARGAR CONFIGURACIÓN (Logo + Evento Activo) ---
+       try {
+        const { data: config } = await supabase.from("configuracion_evento").select("logo_url, nombre_evento, evento_activo_id").limit(1).single();
+        if (config) {
+          currentEventId = config.evento_activo_id;
+
+          if (config.logo_url) {
+            const headerDiv = document.querySelector('header div.max-w-3xl');
+            const img = document.createElement('img');
+            img.src = config.logo_url;
+            img.className = "h-10 w-auto object-contain mr-2 rounded";
+            headerDiv.insertBefore(img, headerDiv.children[1]); 
+          }
+          if (config.nombre_evento) {
+            document.title = "Tiempos - " + config.nombre_evento;
+          }
+        }
+      } catch (e) { console.error(e); }
+      // -----------------------------------
+
+
+      const athleteSearch = document.getElementById("athleteSearch");
+      const selectedAthleteId = document.getElementById("selectedAthleteId");
+      const athleteResults = document.getElementById("athleteResults");
+      const form = document.getElementById("resultForm");
+      const msg = document.getElementById("msg");
+      const resultsBody = document.getElementById("resultsBody");
+
+      const timeH = document.getElementById("time_h");
+      const timeM = document.getElementById("time_m");
+      const timeS = document.getElementById("time_s");
+      const timeC = document.getElementById("time_c");
+
+      const submitBtn = document.getElementById("submitBtn");
+      const cancelEditBtn = document.getElementById("cancelEditBtn");
+
+      let currentEditId = null; // Si tiene valor, estamos editando
+
+      let allAthletes = [];
+
+      function fmtDate(iso) { return new Date(iso).toLocaleString("es-CO", { hour12: false }); }
+
+      // Ajustar automáticamente valores inválidos en inputs
+      [timeM, timeS].forEach(input => {
+        input.addEventListener("change", () => {
+          if (input.value > 59) input.value = 59;
+          if (input.value < 0) input.value = 0;
+          padInput(input);
+        });
+      });
+      [timeH, timeC].forEach(input => {
+        input.addEventListener("change", () => {
+          if (input.value < 0) input.value = 0;
+          padInput(input);
+        });
+      });
+
+      function padInput(el) {
+        if (el.value.length === 1) el.value = "0" + el.value;
+      }
+
+      // Construye el string de tiempo HH:MM:SS.CC
+      function buildTimeStr() {
+        const h = (timeH.value || "0").padStart(2, "0");
+        const m = (timeM.value || "0").padStart(2, "0");
+        const s = (timeS.value || "0").padStart(2, "0");
+        const c = (timeC.value || "0").padStart(2, "0");
+
+        // Formato canónico: HH:MM:SS.CC (o MM:SS.CC si H=00 para compatibilidad visual simple, pero guardaremos completo)
+        // Para consistencia con timeToMs, usaremos formato completo si hay horas, o estándar MM:SS.CC si no.
+        // Sin embargo, para no romper lógica, lo mejor es guardar siempre HH:MM:SS.CC si H>0
+
+        if (parseInt(h) > 0) {
+          return `${h}:${m}:${s}.${c}`;
+        }
+        return `${m}:${s}.${c}`;
+      }
+
+      // Parsea un string de tiempo y llena los inputs
+      function parseTimeStr(str) {
+        if (!str) return;
+        // Intentar detectar formato HH:MM:SS.CC o MM:SS.CC
+        const parts = str.trim().split(":");
+
+        let h = 0, m = 0, s = 0, c = 0;
+
+        if (parts.length === 3) {
+          // HH:MM:SS.CC
+          h = parts[0];
+          m = parts[1];
+          const secParts = parts[2].split(".");
+          s = secParts[0];
+          c = secParts[1] || 0;
+        } else if (parts.length === 2) {
+          // MM:SS.CC
+          m = parts[0];
+          const secParts = parts[1].split(".");
+          s = secParts[0];
+          c = secParts[1] || 0;
+        }
+
+        timeH.value = parseInt(h); padInput(timeH);
+        timeM.value = parseInt(m); padInput(timeM);
+        timeS.value = parseInt(s); padInput(timeS);
+        timeC.value = parseInt(c); padInput(timeC);
+      }
+
+      // Convierte string de tiempo a milisegundos (Soporta HH:MM:SS.CC y MM:SS.CC)
+      function timeToMs(t) {
+        if (!t || typeof t !== 'string') return 999999999;
+        const s = t.trim();
+        const parts = s.split(":");
+
+        let hours = 0, minutes = 0, seconds = 0, centiseconds = 0;
+
+        if (parts.length === 3) {
+          // HH:MM:SS.CC
+          hours = parseInt(parts[0], 10) || 0;
+          minutes = parseInt(parts[1], 10) || 0;
+          const secParts = parts[2].split(".");
+          seconds = parseInt(secParts[0], 10) || 0;
+          centiseconds = secParts.length > 1 ? parseInt((secParts[1] + "00").slice(0, 2), 10) || 0 : 0;
+        } else if (parts.length === 2) {
+          // MM:SS.CC
+          minutes = parseInt(parts[0], 10) || 0;
+          const secParts = parts[1].split(".");
+          seconds = parseInt(secParts[0], 10) || 0;
+          centiseconds = secParts.length > 1 ? parseInt((secParts[1] + "00").slice(0, 2), 10) || 0 : 0;
+        } else {
+          return 999999999;
+        }
+
+        return (hours * 3600 * 1000) + (minutes * 60 * 1000) + (seconds * 1000) + (centiseconds * 10);
+      }
+
+      async function loadAthletes() {
+        if (!currentEventId) return;
+        const { data, error } = await supabase
+          .from("atletas")
+          .select("id, dorsal, nombres, apellidos, genero, categoria, numero_documento")
+          .eq("evento_id", currentEventId)
+          .order("dorsal", { ascending: true })
+          .limit(1000);
+
+        if (error) { console.error(error); return; }
+        allAthletes = data || [];
+      }
+
+      // Búsqueda de atletas
+      athleteSearch.addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase().trim();
+
+        if (query.length < 1) {
+          athleteResults.classList.add("hidden");
+          athleteResults.innerHTML = "";
+          selectedAthleteId.value = "";
+          return;
+        }
+
+        const filtered = allAthletes.filter(a => {
+          const dorsal = (a.dorsal || "").toLowerCase();
+          const names = (a.nombres || "").toLowerCase();
+          const lastnames = (a.apellidos || "").toLowerCase();
+          const doc = (a.numero_documento || "").toLowerCase();
+          return dorsal.includes(query) || names.includes(query) || lastnames.includes(query) || doc.includes(query);
+        });
+
+        if (filtered.length === 0) {
+          athleteResults.classList.add("hidden");
+          athleteResults.innerHTML = "";
+          return;
+        }
+
+        athleteResults.innerHTML = "";
+        athleteResults.classList.remove("hidden");
+
+        filtered.slice(0, 10).forEach(a => {
+          const div = document.createElement("div");
+          div.className = "px-3 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex justify-between items-center";
+          div.innerHTML = `
+            <span>${a.dorsal} - ${a.nombres} ${a.apellidos} (${a.genero})</span>
+            <span class="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400">${a.categoria || "Libre"}</span>
+          `;
+          div.addEventListener("click", () => {
+            athleteSearch.value = `${a.dorsal} - ${a.nombres} ${a.apellidos}`;
+            selectedAthleteId.value = a.id;
+            athleteResults.classList.add("hidden");
+            athleteResults.innerHTML = "";
+            checkExistingResult(a.id);
+          });
+          athleteResults.appendChild(div);
+        });
+      });
+
+      // Validar si ya existe resultado
+      async function checkExistingResult(athleteId) {
+         if (!athleteId || !currentEventId) return;
+
+         try {
+           const { data, error } = await supabase
+             .from("resultados")
+             .select("*")
+             .eq("atleta_id", athleteId)
+             .eq("evento_id", currentEventId)
+             .maybeSingle();
+           
+           if (data) {
+              const name = athleteSearch.value; // Already set
+              startEditing(data.id, data.atleta_id, name, data.tiempo_final);
+              msg.innerHTML = '<span class="text-amber-400 font-bold">⚠️ Este atleta ya tiene tiempo. Modo Edición activado.</span>';
+           }
+         } catch(e) { console.error(e); }
+      }
+
+      // Cerrar resultados al hacer clic fuera
+      document.addEventListener("click", (e) => {
+        if (!athleteSearch.contains(e.target) && !athleteResults.contains(e.target)) {
+          athleteResults.classList.add("hidden");
+        }
+      });
+
+      async function loadRecentResults() {
+        const { data, error } = await supabase
+          .from("resultados")
+          .select("id, tiempo_final, timestamp_meta, created_at, atleta_id, atletas(dorsal, nombres, apellidos)")
+          .eq("evento_id", currentEventId)
+          .order("created_at", { ascending: false })
+          .limit(25);
+
+        if (error) { console.error(error); return; }
+
+        resultsBody.innerHTML = "";
+        (data || []).forEach(r => {
+          const tr = document.createElement("tr");
+          tr.className = "[&>td]:py-2 [&>td]:px-3";
+
+          // Intento de obtener datos del atleta: JOIN o Fallback local
+          let ath = r.atletas;
+          if (!ath && r.atleta_id) {
+             ath = allAthletes.find(a => a.id === r.atleta_id);
+          }
+
+          // Nombre formateado para pasar a la función de edición
+          const dorsal = ath?.dorsal || "";
+          const nombres = ath?.nombres || "";
+          const apellidos = ath?.apellidos || "";
+          const athleteName = (dorsal || nombres) ? `${dorsal} - ${nombres} ${apellidos}` : "Atleta Desconocido";
+
+          tr.innerHTML = `
+        <td class="font-semibold">${athleteName}</td>
+        <td>${r.timestamp_meta ? new Date(r.timestamp_meta).toLocaleTimeString("es-CO", { hour12: false }) : "-"}</td>
+        <td class="font-black text-emerald-300">${r.tiempo_final || "-"}</td>
+        <td class="text-slate-300">${fmtDate(r.created_at)}</td>
+        <td>
+           <button class="bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn" 
+             data-id="${r.id}" 
+             data-athlete-id="${r.atleta_id}"
+             data-athlete-name="${athleteName}"
+             data-time="${r.tiempo_final}">
+             ✏️
+           </button>
+        </td>
+      `;
+          resultsBody.appendChild(tr);
+        });
+
+        // Asignar eventos a botones de editar
+        document.querySelectorAll(".edit-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const athId = btn.dataset.athleteId;
+            const athName = btn.dataset.athleteName;
+            const timeStr = btn.dataset.time;
+
+            startEditing(id, athId, athName, timeStr);
+          });
+        });
+      }
+
+      function startEditing(id, athleteId, athleteName, timeStr) {
+        currentEditId = id;
+        selectedAthleteId.value = athleteId;
+        athleteSearch.value = athleteName;
+        parseTimeStr(timeStr);
+
+        submitBtn.textContent = "Actualizar Tiempo";
+        submitBtn.className = "flex-1 bg-amber-500 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-amber-400 transition-colors";
+        cancelEditBtn.classList.remove("hidden");
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        msg.textContent = "✏️ Editando registro...";
+      }
+
+      function cancelEditing() {
+        currentEditId = null;
+        form.reset();
+        selectedAthleteId.value = "";
+        athleteSearch.value = "";
+        submitBtn.textContent = "Guardar tiempo";
+        submitBtn.className = "flex-1 bg-emerald-400 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-emerald-300 transition-colors";
+        cancelEditBtn.classList.add("hidden");
+        msg.textContent = "";
+        msg.className = "text-sm text-slate-300"; // Reset classes
+      }
+
+      cancelEditBtn.addEventListener("click", cancelEditing);
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "Guardando...";
+
+        try {
+          const athlete_id = selectedAthleteId.value;
+          if (!athlete_id) {
+            msg.textContent = "⚠️ Por favor selecciona un atleta de la lista";
+            return;
+          }
+
+          const time_text = buildTimeStr();
+          const time_ms = timeToMs(time_text);
+
+          const payload = {
+            atleta_id: athlete_id,
+            tiempo_final: time_text,
+            tiempo_ms: time_ms,
+            timestamp_meta: new Date().toISOString(),
+            evento_id: currentEventId
+          };
+
+          let error = null;
+
+          if (currentEditId) {
+            // UPDATE
+            const res = await supabase.from("resultados").update(payload).eq("id", currentEditId);
+            error = res.error;
+          } else {
+            // INSERT
+            const res = await supabase.from("resultados").insert(payload);
+            error = res.error;
+          }
+
+          // FALLBACK: Si falla por columna faltante (tiempo_ms), reintentar sin ella
+          if (error && error.message && error.message.includes("schema cache")) {
+            console.warn("Columna 'tiempo_ms' no encontrada en BD. Reintentando sin ella...");
+            delete payload.tiempo_ms;
+            // Reintento FALLBACK
+            const action = currentEditId ? supabase.from("resultados").update(payload).eq("id", currentEditId) : supabase.from("resultados").insert(payload);
+            const retry = await action;
+            error = retry.error;
+
+            if (!error) {
+              msg.innerHTML = "⚠️ Guardado sin ordenamiento preciso (Falta actualizar BD).";
+              cancelEditing();
+              await loadRecentResults();
+              return;
+            }
+          }
+
+          if (error) throw error;
+
+          if (currentEditId) {
+            msg.textContent = "✅ Tiempo actualizado correctamente.";
+          } else {
+            msg.textContent = "✅ Tiempo registrado nuevo.";
+          }
+
+          cancelEditing(); // Limpia formulario y resetea estado
+          await loadRecentResults();
+        } catch (err) {
+          msg.textContent = "Error: " + (err?.message || String(err));
+        }
+      });
+
+      document.getElementById("reload").addEventListener("click", loadRecentResults);
+
+      async function boot() {
+        await loadAthletes();
+        await loadRecentResults();
+
+        // Realtime: reflejar inserciones en esta pantalla también
+        supabase
+          .channel("results-live-local")
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "resultados" }, async () => {
+            await loadRecentResults();
+          })
+          .subscribe();
+
+        // Realtime: si crean atletas, refrescamos el selector
+        supabase
+          .channel("athletes-live")
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "atletas" }, async () => {
+            await loadAthletes();
+          })
+          .subscribe();
+      }
+
+      await boot();
+    });
+  </script>
+</body>
+
+</html>

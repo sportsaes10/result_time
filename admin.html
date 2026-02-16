@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Panel Administrador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="./public_web/config.js"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="./ranking.html" class="text-slate-300 hover:text-white">← Volver</a>
+      <div class="font-black text-xl">⚙️ Administración del Evento</div>
+      <button id="exportBtn" class="ml-auto bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-2">
+        📊 Exportar Excel
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 grid gap-6 pb-20">
+
+    <!-- Gestión de Evento -->
+    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-emerald-400">Personalización del Evento</h2>
+        <div class="text-xs text-slate-400">ID Evento: <span id="eventIdDisplay" class="font-mono">...</span></div>
+      </div>
+      
+      <div class="grid gap-4 mb-6">
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">Nombre del Evento</span>
+          <input id="eventName" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+        <label class="grid gap-1">
+          <span class="text-sm text-slate-300">URL del Logo</span>
+          <input id="logoUrl" placeholder="https://..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+        <button id="saveGeneralBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition w-full md:w-auto self-start">
+          Guardar Información General
+        </button>
+      </div>
+
+       <hr class="border-slate-800 my-6" />
+
+       <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-blue-400">Gestor de Campos (Formulario)</h3>
+        <button id="addFieldBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center gap-1">
+          + Nuevo Campo
+        </button>
+      </div>
+
+      <div class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800">
+        <table class="w-full text-sm text-left">
+          <thead class="text-slate-400 bg-slate-900/50 uppercase text-xs">
+            <tr>
+              <th class="px-4 py-3">Etiqueta</th>
+              <th class="px-4 py-3">Tipo</th>
+              <th class="px-4 py-3">Opciones</th>
+              <th class="px-4 py-3 text-center">Visible</th>
+              <th class="px-4 py-3 text-center">Obligatorio</th>
+              <th class="px-4 py-3 text-center">Filtro Ranking</th>
+              <th class="px-4 py-3 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="fieldsTableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">* Campos de sistema (Dorsal, Nombres) tienen restricciones de edición.</p>
+    </section>
+
+    <!-- Acciones Avanzadas -->
+    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 border-l-4 border-l-red-500">
+      <h2 class="text-xl font-bold mb-4 text-red-400">Zona de Peligro / Archivo</h2>
+      <p class="text-slate-300 text-sm mb-4">
+        Si el evento finalizó, puedes <strong>Archivar</strong> los datos actuales. Esto guardará todo en el historial y preparará el sistema para un <strong>Nuevo Evento</strong> limpio.
+      </p>
+      <button id="archiveBtn" class="bg-red-900/50 hover:bg-red-800 text-red-100 border border-red-700 font-bold py-3 px-6 rounded-xl transition flex items-center gap-2">
+        📦 Archivar Evento Actual e Iniciar Uno Nuevo
+      </button>
+    </section>
+
+  </main>
+
+  <footer class="mt-auto py-6 border-t border-slate-800 text-center">
+    <div class="flex flex-col items-center justify-center gap-2">
+       <p class="text-slate-500 text-sm">Desarrollado por</p>
+       <img src="./logos/sportsaes_blanco.png" alt="SPORTSAES SAS" class="h-12 opacity-80 hover:opacity-100 transition-opacity">
+    </div>
+  </footer>
+
+  <!-- Modal Edición Campo -->
+  <dialog id="fieldModal" class="bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl p-6 backdrop:bg-slate-950/80 w-full max-w-md">
+    <h3 class="text-lg font-bold mb-4">Editar Campo</h3>
+    <form id="fieldForm" class="grid gap-4">
+      <input type="hidden" id="editKey" />
+      
+      <label class="grid gap-1">
+        <span class="text-sm">Etiqueta (Label)</span>
+        <input id="editLabel" required class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" />
+      </label>
+
+      <label class="grid gap-1">
+        <span class="text-sm">Tipo de Input</span>
+        <select id="editType" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2">
+          <option value="text">Texto</option>
+          <option value="number">Número</option>
+          <option value="date">Fecha</option>
+          <option value="email">Email</option>
+          <option value="tel">Teléfono</option>
+          <option value="select">Lista Desplegable (Select)</option>
+        </select>
+      </label>
+
+      <label class="grid gap-1" id="editOptionsContainer">
+        <span class="text-sm">Opciones (para Listas)</span>
+        <input id="editOptions" placeholder="Ej: Opción 1, Opción 2" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2" />
+        <span class="text-xs text-slate-500">Separadas por coma</span>
+      </label>
+
+      <div class="flex flex-col gap-2 bg-slate-800/50 p-3 rounded-lg">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="editActive" class="accent-emerald-500 w-4 h-4">
+          <span class="text-sm font-bold text-white">Visible / Activo</span>
+        </label>
+        <p class="text-xs text-slate-400 ml-6">Si se desactiva, no aparecerá en el formulario ni ranking, pero los datos se conservan.</p>
+      </div>
+
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="editRequired" class="accent-emerald-500 w-4 h-4">
+          <span class="text-sm">Obligatorio</span>
+        </label>
+        
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="editFilter" class="accent-blue-500 w-4 h-4">
+          <span class="text-sm">Usar como filtro</span>
+        </label>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button type="button" id="closeModalBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg">Cancelar</button>
+        <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-lg font-bold">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      while (!window.supabaseClient) await new Promise(r => setTimeout(r, 100));
+      const supabase = window.supabaseClient;
+
+      // Elementos UI
+      const eventNameInput = document.getElementById("eventName");
+      const logoUrlInput = document.getElementById("logoUrl");
+      const eventIdDisplay = document.getElementById("eventIdDisplay");
+      const fieldsTableBody = document.getElementById("fieldsTableBody");
+      const fieldModal = document.getElementById("fieldModal");
+      const fieldForm = document.getElementById("fieldForm");
+      
+      let currentConfig = { fields: [] };
+      let currentEventId = null;
+
+      // 1. Cargar Configuración
+      async function loadConfig() {
+        const { data, error } = await supabase.from("configuracion_evento").select("*").limit(1).single();
+        if (data) {
+           eventNameInput.value = data.nombre_evento || "";
+           logoUrlInput.value = data.logo_url || "";
+           eventIdDisplay.textContent = data.evento_activo_id || "N/A";
+           currentEventId = data.evento_activo_id;
+           
+           let fields = data.configuracion_fields;
+           if (typeof fields === 'string') fields = JSON.parse(fields);
+           currentConfig.fields = Array.isArray(fields) ? fields : [];
+           
+           renderFields();
+        }
+      }
+
+      // 2. Renderizar Tabla de Campos
+      function renderFields() {
+        fieldsTableBody.innerHTML = "";
+        currentConfig.fields.forEach((f, idx) => {
+           const isSystem = f.system === true;
+           const isActive = f.active !== false; // Default true
+           const tr = document.createElement("tr");
+           tr.className = "hover:bg-slate-900/50 transition " + (isActive ? "" : "opacity-50 grayscale");
+           
+           // Formato de opciones para mostrar
+           let optionsDisplay = "-";
+           if (f.type === 'select') {
+             const opts = Array.isArray(f.options) ? f.options.join(", ") : f.options;
+             optionsDisplay = `<span class="truncate max-w-[150px] block" title="${opts}">${opts}</span>`;
+           }
+
+           tr.innerHTML = `
+             <td class="px-4 py-3 font-medium">${f.label} <span class="text-xs text-slate-500 ml-1 font-mono">${f.key}</span></td>
+             <td class="px-4 py-3 text-slate-300 text-xs uppercase">${f.type}</td>
+             <td class="px-4 py-3 text-slate-400 text-xs">${optionsDisplay}</td>
+             <td class="px-4 py-3 text-center text-lg">${isActive ? '👁️' : '🙈'}</td>
+             <td class="px-4 py-3 text-center">${f.required ? '✅' : '<span class="text-slate-600">No</span>'}</td>
+             <td class="px-4 py-3 text-center">${f.is_filter ? '🔍' : '-'}</td>
+             <td class="px-4 py-3 text-center">
+               <button class="text-blue-400 hover:text-blue-300 mr-2" onclick="window.editField(${idx})">✎</button>
+               ${!isSystem ? `<button class="text-red-400 hover:text-red-300" onclick="window.deleteField(${idx})">🗑</button>` : ''}
+             </td>
+           `;
+           fieldsTableBody.appendChild(tr);
+        });
+      }
+
+      // 3. Guardar General
+      document.getElementById("saveGeneralBtn").addEventListener("click", async () => {
+         const btn = document.getElementById("saveGeneralBtn");
+         const original = btn.innerText;
+         btn.innerText = "Guardando...";
+         
+         const {data:cfg} = await supabase.from("configuracion_evento").select("id").limit(1).single();
+         if(cfg) {
+            await supabase.from("configuracion_evento").update({
+               nombre_evento: eventNameInput.value,
+               logo_url: logoUrlInput.value
+            }).eq("id", cfg.id);
+            alert("Información general guardada");
+         }
+         btn.innerText = original;
+      });
+
+      // 4. Lógica de Modal (Crear/Editar)
+      let editingIdx = -1;
+
+      window.editField = (idx) => {
+        editingIdx = idx;
+        const f = currentConfig.fields[idx];
+        
+        document.getElementById("editLabel").value = f.label;
+        document.getElementById("editType").value = f.type || "text";
+        document.getElementById("editRequired").checked = f.required === true;
+        document.getElementById("editFilter").checked = f.is_filter === true;
+        document.getElementById("editActive").checked = f.active !== false; // Default true
+        
+        const optsInput = document.getElementById("editOptions");
+        if (f.options) {
+          optsInput.value = Array.isArray(f.options) ? f.options.join(", ") : f.options;
+        } else {
+          optsInput.value = "";
+        }
+        
+        fieldModal.showModal();
+      };
+
+      document.getElementById("addFieldBtn").addEventListener("click", () => {
+        editingIdx = -1;
+        fieldForm.reset();
+        document.getElementById("editActive").checked = true; // Default for new
+        fieldModal.showModal();
+      });
+
+      document.getElementById("closeModalBtn").addEventListener("click", () => fieldModal.close());
+
+      fieldForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const label = document.getElementById("editLabel").value.trim();
+        const type = document.getElementById("editType").value;
+        const required = document.getElementById("editRequired").checked;
+        const is_filter = document.getElementById("editFilter").checked;
+        const active = document.getElementById("editActive").checked;
+        const rawOpts = document.getElementById("editOptions").value;
+        
+        let options = null;
+        if (type === 'select') {
+          options = rawOpts.split(",").map(s => s.trim()).filter(Boolean);
+        }
+
+        let key = editingIdx >= 0 ? currentConfig.fields[editingIdx].key : label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        
+        const newField = {
+          key,
+          label,
+          type,
+          required,
+          is_filter,
+          active,
+          options,
+          // Mantener propiedades de sistema
+          system: editingIdx >= 0 ? currentConfig.fields[editingIdx].system : false,
+          show_in_ranking: editingIdx >= 0 ? (currentConfig.fields[editingIdx].show_in_ranking !== false) : true 
+        };
+
+        if (editingIdx >= 0) {
+          currentConfig.fields[editingIdx] = newField;
+        } else {
+          currentConfig.fields.push(newField);
+        }
+
+        const {data:cfg} = await supabase.from("configuracion_evento").select("id").limit(1).single();
+        if (cfg) {
+           const { error } = await supabase.from("configuracion_evento").update({
+             configuracion_fields: currentConfig.fields
+           }).eq("id", cfg.id);
+           
+           if (!error) {
+             renderFields();
+             fieldModal.close();
+           } else {
+             alert("Error guardando campo: " + error.message);
+           }
+        }
+      });
+
+      window.deleteField = async (idx) => {
+        if(!confirm("¿Eliminar este campo? Los datos ya guardados no se mostrarán.")) return;
+        currentConfig.fields.splice(idx, 1);
+        
+        const {data:cfg} = await supabase.from("configuracion_evento").select("id").limit(1).single();
+        await supabase.from("configuracion_evento").update({
+           configuracion_fields: currentConfig.fields
+        }).eq("id", cfg.id);
+        renderFields();
+      };
+
+      // 5. Archivar Evento
+      document.getElementById("archiveBtn").addEventListener("click", async () => {
+        const confirmMsg = "⚠️ ¿Estás seguro de cerrar el evento actual?\n\n- Se ocultarán los inscritos y resultados actuales.\n- Se creará un NUEVO ID de evento.\n- El sistema quedará limpio para una nueva carrera.";
+        if (!confirm(confirmMsg)) return;
+
+        const nombreNuevo = prompt("Nombre para el NUEVO evento:", "Nueva Carrera " + new Date().getFullYear());
+        if (!nombreNuevo) return;
+
+        const { data: newEvent, error: errCreate } = await supabase
+          .from("eventos")
+          .insert({ nombre: nombreNuevo, activo: true })
+          .select("id")
+          .single();
+
+        if (errCreate) { alert("Error creando evento: " + errCreate.message); return; }
+
+        const {data:cfg} = await supabase.from("configuracion_evento").select("id").limit(1).single();
+        const { error: errUpdate } = await supabase
+          .from("configuracion_evento")
+          .update({ 
+            evento_activo_id: newEvent.id,
+            nombre_evento: nombreNuevo 
+          })
+          .eq("id", cfg.id);
+
+        if (!errUpdate) {
+          alert("✅ Evento archivado. El sistema ahora está listo para la nueva carrera.");
+          location.reload();
+        } else {
+          alert("Error actualizando config: " + errUpdate.message);
+        }
+      });
+
+      // 6. Exportar Excel (usando SheetJS)
+      document.getElementById("exportBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("exportBtn");
+        btn.innerText = "Generando...";
+        
+        try {
+          if (!currentEventId) {
+             alert("No se ha cargado el ID del evento.");
+             return;
+          }
+
+          // 1. Traer Atletas del Evento
+          const { data: athletes, error: errAth } = await supabase
+            .from("atletas")
+            .select("*")
+            .eq("evento_id", currentEventId);
+
+          if (errAth) throw errAth;
+          
+          if (!athletes || athletes.length === 0) {
+            alert("No hay atletas registrados para este evento.");
+            return;
+          }
+
+          // 2. Traer Resultados del Evento
+          const { data: results, error: errRes } = await supabase
+            .from("resultados")
+            .select("*")
+            .eq("evento_id", currentEventId);
+            
+          if (errRes) throw errRes;
+
+          // Crear mapa de resultados por atleta_id
+          const resultsMap = new Map();
+          if (results) {
+             results.forEach(r => {
+                // Si hay múltiples resultados, tomar el mejor tiempo (menor ms) o el más reciente
+                // En este caso, usaremos el mejor tiempo
+                const existing = resultsMap.get(r.atleta_id);
+                if (!existing || (r.tiempo_ms || 999999999) < (existing.tiempo_ms || 999999999)) {
+                   resultsMap.set(r.atleta_id, r);
+                }
+             });
+          }
+
+          // 3. Unir Datos
+          const rows = athletes.map(a => {
+             const res = resultsMap.get(a.id) || {};
+             
+             // Extraer datos adicionales
+             const extra = typeof a.datos_adicionales === 'string' 
+                ? JSON.parse(a.datos_adicionales) 
+                : (a.datos_adicionales || {});
+             
+             return {
+               ID: a.id,
+               Dorsal: a.dorsal,
+               Nombres: a.nombres,
+               Apellidos: a.apellidos,
+               Categoria: a.categoria,
+               Genero: a.genero,
+               Club: a.club || extra.club || "",
+               ...extra, // Expandir JSONB columns dinamicas
+               Tiempo: res.tiempo_final || "-",
+               Fecha_Resultado: res.created_at ? new Date(res.created_at).toLocaleString() : "-"
+             };
+          });
+
+          // 4. Generar Excel
+          const ws = XLSX.utils.json_to_sheet(rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Resultados");
+          XLSX.writeFile(wb, `Evento_${currentEventId}_Data.xlsx`);
+
+        } catch (e) {
+          console.error(e);
+          alert("Error exportando: " + e.message);
+        } finally {
+          btn.innerText = "📊 Exportar Excel";
+        }
+      });
+
+      await loadConfig();
+    });
+  </script>
+</body>
+</html>
+</body>
+</html>

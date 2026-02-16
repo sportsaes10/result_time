@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro de atletas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+          <a href="./ranking.html" class="text-slate-400 hover:text-white text-sm font-medium">← Ranking</a>
+          <div class="font-black text-xl text-nowrap">➕ Registrar atletas</div>
+      </div>
+      <a href="./results.html" class="bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold text-center text-nowrap ml-auto">
+        Ir a tiempos
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <div class="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 mb-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div class="flex items-center gap-2 text-blue-300">
+        <span class="text-xl">🔍</span>
+        <div class="text-sm">
+          <div class="font-bold">¿Ya participó antes?</div>
+          <div class="opacity-80">Busca por cédula o nombre para autocompletar</div>
+        </div>
+      </div>
+      <div class="relative w-full md:w-auto md:min-w-[300px]">
+        <input id="globalSearch" type="text" placeholder="Buscar en historial..." 
+          class="w-full bg-slate-950 border border-blue-900/50 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all" />
+        <div id="globalSearchResults" class="absolute top-12 left-0 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 hidden max-h-60 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <form id="athleteForm" class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 grid gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <label class="col-span-1 md:col-span-2 grid gap-1">
+          <span class="text-sm text-slate-300">Dorsal *</span>
+          <input id="dorsal" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-5 grid gap-1">
+          <span class="text-sm text-slate-300">Nombres *</span>
+          <input id="nombres" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-2 md:col-span-5 grid gap-1">
+          <span class="text-sm text-slate-300">Apellidos *</span>
+          <input id="apellidos" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-3 grid gap-1">
+          <span class="text-sm text-slate-300">Tipo Doc.</span>
+          <select id="tipo_documento" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2">
+            <option value="CC">Cédula</option>
+            <option value="TI">T. Identidad</option>
+            <option value="PE">P. Especial</option>
+          </select>
+        </label>
+
+        <label class="col-span-1 md:col-span-4 grid gap-1">
+          <span class="text-sm text-slate-300">No. Documento</span>
+          <input id="numero_documento" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-3 grid gap-1">
+          <span class="text-sm text-slate-300">Fecha Nacimiento</span>
+          <input type="date" id="fecha_nacimiento"
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-2 grid gap-1">
+          <span class="text-sm text-slate-300">Edad</span>
+          <input id="edad" readonly
+            class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 w-full text-slate-400" />
+        </label>
+
+        <label class="col-span-1 md:col-span-3 grid gap-1">
+          <span class="text-sm text-slate-300">Género</span>
+          <select id="genero" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2">
+            <option value="M">M</option>
+            <option value="F">F</option>
+            <option value="X">X</option>
+          </select>
+        </label>
+
+        <label class="col-span-1 md:col-span-4 grid gap-1">
+          <span class="text-sm text-slate-300">Categoría</span>
+          <input list="categoryList" id="categoria" placeholder="Selecciona o escribe..."
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+          <datalist id="categoryList">
+            <option value="Elite"></option>
+            <option value="Novatos"></option>
+          </datalist>
+        </label>
+
+        <label class="col-span-2 md:col-span-5 grid gap-1">
+          <span class="text-sm text-slate-300">Club</span>
+          <input id="club" placeholder="Opcional" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+
+        <label class="col-span-1 md:col-span-4 grid gap-1">
+          <span class="text-sm text-slate-300">Departamento</span>
+          <input id="departamento" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-4 grid gap-1">
+          <span class="text-sm text-slate-300">Municipio</span>
+          <input id="municipio" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-4 grid gap-1">
+          <span class="text-sm text-slate-300">Localidad</span>
+          <input id="localidad" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 w-full" />
+        </label>
+
+        <label class="col-span-1 md:col-span-6 grid gap-1">
+          <span class="text-sm text-slate-300">Email</span>
+          <input id="email" type="email" placeholder="Opcional"
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+
+        <label class="col-span-1 md:col-span-6 grid gap-1">
+          <span class="text-sm text-slate-300">Teléfono</span>
+          <input id="telefono" placeholder="Opcional"
+            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+        </label>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="submitBtn"
+          class="flex-1 bg-emerald-400 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-emerald-300 transition-colors">
+          Guardar atleta
+        </button>
+        <button id="cancelEditBtn" type="button"
+          class="hidden flex-none bg-slate-700 text-white rounded-xl px-4 py-3 font-bold hover:bg-slate-600 transition-colors">
+          Cancelar
+        </button>
+      </div>
+
+      <div id="msg" class="text-sm text-slate-300"></div>
+    </form>
+
+    <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+      <div class="flex items-center gap-2">
+        <div class="font-bold">Últimos atletas</div>
+        <button id="reload"
+          class="ml-auto bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold">Refrescar</button>
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-slate-300">
+            <tr class="[&>th]:py-2 [&>th]:px-3 text-left border-b border-slate-800">
+              <th>Dorsal</th>
+              <th>Nombres</th>
+              <th>Apellidos</th>
+              <th>Género</th>
+              <th>Categoría</th>
+              <th>Club</th>
+              <th>Fecha</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="athletesBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+  </main>
+
+  <footer class="mt-auto py-6 border-t border-slate-800 text-center">
+    <div class="flex flex-col items-center justify-center gap-2">
+       <p class="text-slate-500 text-sm">Desarrollado por</p>
+       <img src="./logos/sportsaes_blanco.png" alt="SPORTSAES SAS" class="h-12 opacity-80 hover:opacity-100 transition-opacity">
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      while (!window.supabaseClient) await new Promise(resolve => setTimeout(resolve, 100));
+      const supabase = window.supabaseClient;
+      
+      const form = document.getElementById("athleteForm");
+      const container = document.getElementById("dynamicFieldsContainer"); // This ID doesn't exist in the HTML, assuming it's meant to be the parent of dynamic fields if they were to be rendered dynamically. For now, the existing static form fields will be used.
+      const msg = document.getElementById("msg");
+      const submitBtn = document.getElementById("submitBtn");
+
+      let currentEventId = null;
+      let configFields = [];
+      
+      // Columnas nativas de la tabla 'atletas'
+      const NATIVE_COLUMNS = [
+        "dorsal", "nombres", "apellidos", "genero", "categoria", 
+        "fecha_nacimiento", "club", "email", "telefono", 
+        "tipo_documento", "numero_documento", "departamento", "municipio"
+      ];
+
+      // 1. CARGAR CONFIGURACIÓN
+      try {
+        const { data: config } = await supabase.from("configuracion_evento").select("*").limit(1).single();
+        if (config) {
+          currentEventId = config.evento_activo_id;
+
+          // Header y Título
+          if (config.logo_url) {
+            const headerDiv = document.querySelector('header div.flex');
+            const img = document.createElement('img');
+            img.src = config.logo_url;
+            img.className = "h-10 w-auto object-contain mr-2 rounded";
+            headerDiv.insertBefore(img, headerDiv.children[1]);
+          }
+          if (config.nombre_evento) {
+            document.title = "Registro - " + config.nombre_evento;
+          }
+
+          // Parsear Campos
+          let fields = config.configuracion_fields;
+          if (typeof fields === 'string') fields = JSON.parse(fields);
+          configFields = Array.isArray(fields) ? fields : [];
+
+          renderForm(configFields);
+        }
+      } catch (e) {
+        console.error("Error cargando config:", e);
+        msg.textContent = "Error cargando configuración del evento.";
+        msg.className = "text-red-400";
+      }
+
+      // 2. RENDERIZAR FORMULARIO
+      function renderForm(fields) {
+        // The original HTML has static form fields. This renderForm function
+        // seems to be designed for dynamic field generation.
+        // For this change, we'll adapt it to hide/show existing static fields
+        // based on the 'active' property from configFields.
+        // If 'container' was meant to be the parent of dynamically generated fields,
+        // it would need to be added to the HTML.
+        // Assuming the intent is to control the visibility of the *existing* fields.
+
+        // First, hide all fields that are part of the configFields (if they exist statically)
+        // and then show only the active ones.
+        const allConfigurableFieldIds = [
+          "dorsal", "nombres", "apellidos", "genero", "edad",
+          "club", "email", "telefono", "categoria", "tipo_documento",
+          "numero_documento", "fecha_nacimiento", "departamento", "municipio", "localidad"
+        ];
+        allConfigurableFieldIds.forEach(id => {
+          const input = document.getElementById(id);
+          if (input) {
+            const label = input.closest("label");
+            if (label) label.classList.add("hidden");
+            input.required = false; // Remove required to prevent blocking submission
+          }
+        });
+
+        // Filter active fields (default true)
+        const activeFields = fields.filter(f => f.active !== false);
+
+        activeFields.forEach(f => {
+          const input = document.getElementById(f.key);
+          if (input) {
+            const label = input.closest("label");
+            if (label) {
+              label.classList.remove("hidden");
+              // Apply required attribute if specified
+              if (f.required) {
+                input.required = true;
+              } else {
+                input.removeAttribute("required");
+              }
+            }
+          }
+          // If the field is a select and has options, update them
+          if (f.type === 'select' && input && input.tagName === 'SELECT') {
+            input.innerHTML = ""; // Clear existing options
+            const defaultOpt = document.createElement("option");
+            defaultOpt.value = "";
+            defaultOpt.text = "Seleccionar...";
+            defaultOpt.disabled = true;
+            defaultOpt.selected = true;
+            input.appendChild(defaultOpt);
+
+            const opts = Array.isArray(f.options) ? f.options : (f.options || "").split(",");
+            opts.forEach(o => {
+              const optTag = document.createElement("option");
+              const val = typeof o === 'string' ? o.trim() : o;
+              optTag.value = val;
+              optTag.text = val;
+              input.appendChild(optTag);
+            });
+          }
+        });
+      }
+
+      // --- CARGAR CONFIGURACIÓN (Logo y Campos) ---
+      // This block is now largely superseded by the new config loading and renderForm logic above.
+      // Keeping it commented out or removing it would be the next logical step if the new logic is fully functional.
+      // For now, I'll comment it out to avoid conflicts, as the new renderForm is designed to handle field visibility.
+      /*
+      try {
+        const { data: config } = await supabase.from("configuracion_evento").select("*").limit(1).single();
+        if (config) {
+          // 1. Logo Personalizado
+          if (config.logo_url) {
+            const headerDiv = document.querySelector('header div.flex');
+            // Insertar logo antes del título
+            const img = document.createElement('img');
+            img.src = config.logo_url;
+            img.className = "h-10 w-auto object-contain mr-2 rounded";
+            headerDiv.insertBefore(img, headerDiv.children[1]); // Insertar después del link ranking
+          }
+
+          // 2. Título Evento
+          if (config.nombre_evento) {
+            document.title = "Registro - " + config.nombre_evento;
+          }
+
+          // 3. Ocultar campos desactivados
+          const fields = config.campos_registro || {};
+          // Mapeo campo -> ID del label contenedor (buscamos el input y subimos al padre label)
+          const fieldMap = {
+            "club": "club",
+            "email": "email",
+            "telefono": "telefono",
+            "categoria": "categoria"
+          };
+          
+          Object.keys(fieldMap).forEach(key => {
+            if (fields[key] === false) {
+              const input = document.getElementById(fieldMap[key]);
+              if (input) {
+                // Ocultar el label padre (input > label)
+                const label = input.closest("label");
+                if (label) label.classList.add("hidden");
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Error cargando config visual:", e);
+      }
+      */
+      // ---------------------------------------------
+
+      // The original form and msg variables are already declared above in the new script block.
+      // const form = document.getElementById("athleteForm");
+      // const msg = document.getElementById("msg");
+      const athletesBody = document.getElementById("athletesBody");
+
+      // const submitBtn = document.getElementById("submitBtn"); // Already declared
+      const cancelEditBtn = document.getElementById("cancelEditBtn");
+
+      // Nuevos campos
+      const fechaNacInput = document.getElementById("fecha_nacimiento");
+      const edadInput = document.getElementById("edad");
+
+      fechaNacInput.addEventListener("change", () => {
+        const val = fechaNacInput.value;
+        if (!val) {
+          edadInput.value = "";
+          return;
+        }
+        const birthDate = new Date(val);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        edadInput.value = age;
+      });
+
+      let currentEditId = null;
+
+      function fmtDate(iso) { return new Date(iso).toLocaleString("es-CO", { hour12: false }); }
+
+      async function loadAthletes() {
+        if (!currentEventId) return;
+        const { data, error } = await supabase
+          .from("atletas")
+          .select("*")
+          .eq("evento_id", currentEventId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (error) { console.error(error); return; }
+
+        athletesBody.innerHTML = "";
+        (data || []).forEach(a => {
+          const tr = document.createElement("tr");
+          tr.className = "[&>td]:py-2 [&>td]:px-3";
+
+          // Serializar datos para el botón de edición
+          const athleteData = encodeURIComponent(JSON.stringify(a));
+
+          tr.innerHTML = `
+          <td class="font-semibold">${a.dorsal}</td>
+          <td>${a.nombres || "-"}</td>
+          <td>${a.apellidos || "-"}</td>
+          <td>${a.genero || "-"}</td>
+          <td><span class="bg-slate-800 px-2 py-1 rounded text-xs">${a.categoria || "Libre"}</span></td>
+          <td class="text-slate-300">${a.club || "-"}</td>
+          <td class="text-slate-300">${fmtDate(a.created_at)}</td>
+          <td>
+             <button class="bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn" 
+               data-athlete="${athleteData}">
+               ✏️
+             </button>
+          </td>
+        `;
+          athletesBody.appendChild(tr);
+        });
+
+        // Asignar eventos a botones
+        document.querySelectorAll(".edit-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const data = JSON.parse(decodeURIComponent(btn.dataset.athlete));
+            startEditing(data);
+          });
+        });
+      }
+
+      function startEditing(a) {
+        currentEditId = a.id;
+        document.getElementById("dorsal").value = a.dorsal || "";
+        document.getElementById("nombres").value = a.nombres || "";
+        document.getElementById("apellidos").value = a.apellidos || "";
+
+        document.getElementById("tipo_documento").value = a.tipo_documento || "CC";
+        document.getElementById("numero_documento").value = a.numero_documento || "";
+        document.getElementById("fecha_nacimiento").value = a.fecha_nacimiento || "";
+        document.getElementById("edad").value = a.edad || "";
+        document.getElementById("departamento").value = a.departamento || "";
+        document.getElementById("municipio").value = a.municipio || "";
+        document.getElementById("localidad").value = a.localidad || "";
+        document.getElementById("genero").value = a.genero || "M";
+        document.getElementById("categoria").value = a.categoria || "";
+        document.getElementById("club").value = a.club || "";
+        document.getElementById("email").value = a.email || "";
+        document.getElementById("telefono").value = a.telefono || "";
+
+        submitBtn.textContent = "Actualizar Atleta";
+        submitBtn.className = "flex-1 bg-amber-500 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-amber-400 transition-colors";
+        cancelEditBtn.classList.remove("hidden");
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        msg.textContent = "✏️ Editando atleta...";
+      }
+
+      function cancelEditing() {
+        currentEditId = null;
+        form.reset();
+
+        // El form.reset() debería limpiar los inputs nativos, 
+        // pero aseguramos edad se limpie si no es input estándar (es readonly pero input)
+        document.getElementById("edad").value = "";
+
+        submitBtn.textContent = "Guardar atleta";
+        submitBtn.className = "flex-1 bg-emerald-400 text-slate-950 rounded-xl px-4 py-3 font-black hover:bg-emerald-300 transition-colors";
+        cancelEditBtn.classList.add("hidden");
+        msg.textContent = "";
+      }
+
+      const globalSearch = document.getElementById("globalSearch");
+      const globalSearchResults = document.getElementById("globalSearchResults");
+
+      // Búsqueda Global (Historial)
+      let searchDebounce;
+      globalSearch.addEventListener("input", (e) => {
+        clearTimeout(searchDebounce);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+          globalSearchResults.classList.add("hidden");
+          return;
+        }
+
+        searchDebounce = setTimeout(async () => {
+          // Buscar en TODOS los eventos (sin filtrar por currentEventId)
+          // Usamos 'ilike' para búsqueda insensible a mayúsculas
+          const { data, error } = await supabase
+            .from("atletas")
+            .select("*")
+            .or(`nombres.ilike.%${query}%,apellidos.ilike.%${query}%,numero_documento.ilike.%${query}%,dorsal.ilike.%${query}%`)
+            .limit(10);
+
+          if (error) { console.error(error); return; }
+
+          globalSearchResults.innerHTML = "";
+          if (data && data.length > 0) {
+            globalSearchResults.classList.remove("hidden");
+            
+            // Eliminar duplicados visuales (mismo documento)
+            const seenDocs = new Set();
+            
+            data.forEach(a => {
+              const docKey = a.numero_documento || (a.nombres + a.apellidos); // Fallback key
+              if (seenDocs.has(docKey)) return;
+              seenDocs.add(docKey);
+
+              const div = document.createElement("div");
+              div.className = "px-4 py-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 transition-colors";
+              div.innerHTML = `
+                <div class="font-bold text-slate-200">${a.nombres} ${a.apellidos}</div>
+                <div class="text-xs text-slate-500 flex gap-2">
+                   <span>${a.numero_documento || "Sin Doc"}</span>
+                   <span>•</span>
+                   <span>${a.club || "Sin Club"}</span>
+                </div>
+              `;
+              div.addEventListener("click", () => {
+                fillFormWithHistory(a);
+                globalSearchResults.classList.add("hidden");
+                globalSearch.value = "";
+                msg.innerHTML = `<span class="text-blue-400">⚡ Datos cargados de ${a.nombres}. ¡Asigna un nuevo dorsal!</span>`;
+              });
+              globalSearchResults.appendChild(div);
+            });
+          } else {
+             globalSearchResults.classList.add("hidden");
+          }
+        }, 300);
+      });
+
+      // Llenar formulario con datos históricos
+      function fillFormWithHistory(a) {
+        // NO copiamos el ID, para crear uno nuevo
+        // NO copiamos el dorsal, porque cambia por evento
+        // NO copiamos evento_id
+        
+        document.getElementById("nombres").value = a.nombres || "";
+        document.getElementById("apellidos").value = a.apellidos || "";
+        document.getElementById("tipo_documento").value = a.tipo_documento || "CC";
+        document.getElementById("numero_documento").value = a.numero_documento || "";
+        document.getElementById("fecha_nacimiento").value = a.fecha_nacimiento || "";
+        
+        // Recalcular edad si hay fecha
+        if (a.fecha_nacimiento) {
+           const birthDate = new Date(a.fecha_nacimiento);
+           const today = new Date();
+           let age = today.getFullYear() - birthDate.getFullYear();
+           const m = today.getMonth() - birthDate.getMonth();
+           if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+           document.getElementById("edad").value = age;
+        } else {
+           document.getElementById("edad").value = a.edad || "";
+        }
+
+        document.getElementById("departamento").value = a.departamento || "";
+        document.getElementById("municipio").value = a.municipio || "";
+        document.getElementById("localidad").value = a.localidad || "";
+        document.getElementById("genero").value = a.genero || "M";
+        document.getElementById("categoria").value = a.categoria || ""; // Puede cambiar, pero es buen default
+        document.getElementById("club").value = a.club || "";
+        document.getElementById("email").value = a.email || "";
+        document.getElementById("telefono").value = a.telefono || "";
+        
+        // Enfocar en Dorsal para que el usuario siga el flujo
+        document.getElementById("dorsal").focus();
+      }
+
+      // Cerrar search al click fuera
+      document.addEventListener("click", (e) => {
+         if(!globalSearch.contains(e.target) && !globalSearchResults.contains(e.target)) {
+            globalSearchResults.classList.add("hidden");
+         }
+      });
+
+      cancelEditBtn.addEventListener("click", cancelEditing);
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "Guardando...";
+
+        const payload = {
+          dorsal: document.getElementById("dorsal").value.trim(),
+          nombres: document.getElementById("nombres").value.trim(),
+          apellidos: document.getElementById("apellidos").value.trim(),
+
+          tipo_documento: document.getElementById("tipo_documento").value,
+          numero_documento: document.getElementById("numero_documento").value.trim() || null,
+          fecha_nacimiento: document.getElementById("fecha_nacimiento").value || null,
+          edad: document.getElementById("edad").value ? parseInt(document.getElementById("edad").value) : null,
+          departamento: document.getElementById("departamento").value.trim() || null,
+          municipio: document.getElementById("municipio").value.trim() || null,
+          localidad: document.getElementById("localidad").value.trim() || null,
+          genero: document.getElementById("genero").value,
+          categoria: document.getElementById("categoria").value.trim() || null,
+          club: document.getElementById("club").value.trim() || null,
+          email: document.getElementById("email").value.trim() || null,
+          telefono: document.getElementById("telefono").value.trim() || null,
+          evento_id: currentEventId
+        };
+
+        let error = null;
+
+        if (currentEditId) {
+          // UPDATE
+          const res = await supabase.from("atletas").update(payload).eq("id", currentEditId);
+          error = res.error;
+        } else {
+          // INSERT
+          const res = await supabase.from("atletas").insert(payload);
+          error = res.error;
+        }
+
+        // FALLBACK: Si falla porque no existe la columna 'categoria', intentamos sin ella
+        if (error && error.message && error.message.includes("schema cache")) {
+          console.warn("Columna 'categoria' no encontrada en BD. Reintentando sin ella...");
+          delete payload.categoria;
+          // Reintento FALLBACK
+          const action = currentEditId ? supabase.from("atletas").update(payload).eq("id", currentEditId) : supabase.from("atletas").insert(payload);
+          const retry = await action;
+          error = retry.error;
+
+          if (!error) {
+            msg.innerHTML = "⚠️ Atleta guardado (falta actualizar BD para categorías).";
+            cancelEditing();
+            await loadAthletes();
+            return;
+          }
+        }
+
+        if (error) {
+          msg.textContent = "Error: " + error.message;
+          return;
+        }
+
+        if (currentEditId) {
+          msg.textContent = "✅ Atleta actualizado.";
+        } else {
+          msg.textContent = "✅ Atleta registrado.";
+        }
+
+        cancelEditing();
+        await loadAthletes();
+      });
+
+      document.getElementById("reload").addEventListener("click", loadAthletes);
+
+      await loadAthletes();
+    });
+  </script>
+</body>
+
+</html>

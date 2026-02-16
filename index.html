@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ranking en vivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
+  </head>
+
+  <body class="bg-slate-950 text-slate-100 min-h-screen">
+    <header
+      class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800"
+    >
+      <div
+        class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+      >
+        <div class="font-black text-xl flex items-center gap-2 text-nowrap">
+          🏆 Ranking en vivo
+        </div>
+        <div class="flex gap-2">
+          <a
+            href="./results.html"
+            class="bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold text-center text-nowrap"
+          >
+            Registrar tiempos
+          </a>
+          <a
+            href="./athletes.html"
+            class="bg-slate-800 text-slate-100 rounded-xl px-3 py-2 text-sm font-semibold text-center text-nowrap"
+          >
+            Registrar atletas
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-6">
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <div class="flex items-center gap-2 mr-4">
+            <div
+              class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"
+            ></div>
+            <span class="text-sm font-semibold text-emerald-400">LIVE</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2" id="filtersContainer">
+            <!-- Filters injected by JS -->
+          </div>
+
+          <button
+            id="refreshBtn"
+            class="ml-auto bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold"
+          >
+            Refrescar
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-slate-300">
+              <tr
+                class="[&>th]:py-2 [&>th]:px-2 sm:[&>th]:px-3 text-left border-b border-slate-800 text-xs sm:text-sm"
+                id="tableHeader"
+              >
+                <th>Pos</th>
+                <th id="th-dorsal">Dorsal</th>
+                <th>Atleta</th>
+                <!-- Dynamic Headers -->
+                <th>Tiempo</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="rankBody" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+
+        <div id="emptyState" class="hidden text-center py-8 text-slate-400">
+          No hay resultados registrados aún
+        </div>
+      </div>
+    </main>
+
+    <footer class="mt-auto py-6 border-t border-slate-800 text-center">
+      <div class="flex flex-col items-center justify-center gap-2">
+        <p class="text-slate-500 text-sm">Desarrollado por</p>
+        <img
+          src="./logos/sportsaes_blanco.png"
+          alt="SPORTSAES SAS"
+          class="h-12 opacity-80 hover:opacity-100 transition-opacity"
+        />
+      </div>
+    </footer>
+
+    <script>
+      // Flag global para evitar doble inicialización
+      window.appInitialized = false;
+
+      async function safeLoadRanking() {
+        if (window.loadRankingFn) {
+          console.log("Reloading ranking data...");
+          await window.loadRankingFn();
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (window.appInitialized) return;
+        window.appInitialized = true;
+
+        while (!window.supabaseClient)
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        const supabase = window.supabaseClient;
+
+        const filtersContainer = document.getElementById("filtersContainer");
+        const tableHeader = document.getElementById("tableHeader");
+        const rankBody = document.getElementById("rankBody");
+        const emptyState = document.getElementById("emptyState");
+
+        let configFields = [];
+        let currentEventId = null;
+
+        // Expose loadRanking to global scope for pageshow event
+        window.loadRankingFn = async () => {
+          if (!currentEventId) return;
+
+          // Fetch Data
+          const { data, error } = await supabase
+            .from("resultados")
+            .select(
+              "id, atleta_id, tiempo_final, tiempo_ms, timestamp_meta, created_at, atletas(dorsal, nombres, apellidos, genero, categoria, datos_adicionales)",
+            )
+            .eq("evento_id", currentEventId)
+            .eq("estado", "finalizado")
+            .order("tiempo_ms", { ascending: true })
+            .order("created_at", { ascending: false });
+
+          if (error) {
+            console.error(error);
+            return;
+          }
+
+          if (!data || data.length === 0) {
+            emptyState.classList.remove("hidden");
+            rankBody.innerHTML = "";
+            return;
+          }
+
+          emptyState.classList.add("hidden");
+
+          // --- FILTRADO DINÁMICO ---
+          const activeFilters = configFields.filter((f) => f.is_filter);
+          const textFilters = {};
+          activeFilters.forEach((f) => {
+            const el = document.getElementById(`filter_${f.key}`);
+            if (el && el.value !== "ALL") {
+              textFilters[f.key] = el.value;
+            }
+          });
+
+          // Agrupar 'Best Time' por atleta
+          const bestTimes = new Map();
+          data.forEach((r) => {
+            const a = r.atletas || {};
+            const flatAtleta = { ...a, ...(a.datos_adicionales || {}) };
+
+            // Check filters
+            let pass = true;
+            for (const [key, val] of Object.entries(textFilters)) {
+              // Loose equality for numbers/strings match
+              if (flatAtleta[key] != val) {
+                pass = false;
+                break;
+              }
+            }
+            if (!pass) return;
+
+            const key = r.atleta_id;
+            const existing = bestTimes.get(key);
+            const currentMs = r.tiempo_ms || timeToMs(r.tiempo_final);
+            const existingMs = existing
+              ? existing.tiempo_ms || timeToMs(existing.tiempo_final)
+              : 999999999;
+
+            if (!existing || currentMs < existingMs) {
+              bestTimes.set(key, r);
+            }
+          });
+
+          // Ordenar
+          const rows = Array.from(bestTimes.values()).sort((a, b) => {
+            const aMs = a.tiempo_ms || timeToMs(a.tiempo_final);
+            const bMs = b.tiempo_ms || timeToMs(b.tiempo_final);
+            return aMs - bMs;
+          });
+
+          // Render
+          renderRows(rows);
+        };
+
+        function renderRows(rows) {
+          rankBody.innerHTML = "";
+          rows.forEach((r, idx) => {
+            const a = r.atletas || {};
+            const flatAtleta = { ...a, ...(a.datos_adicionales || {}) };
+
+            const tr = document.createElement("tr");
+            tr.className =
+              "[&>td]:py-2 [&>td]:px-2 sm:[&>td]:px-3 border-b border-slate-800 last:border-0 hover:bg-slate-900/50 transition-colors text-xs sm:text-sm";
+
+            let dynamicCells = "";
+            configFields.forEach((f) => {
+              if (
+                f.show_in_ranking &&
+                !["dorsal", "nombres", "apellidos"].includes(f.key)
+              ) {
+                let val = flatAtleta[f.key];
+                if (val === undefined || val === null) val = "-";
+
+                if (f.key === "categoria" || f.key === "genero") {
+                  dynamicCells += `<td><span class="bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium">${val}</span></td>`;
+                } else {
+                  dynamicCells += `<td>${val}</td>`;
+                }
+              }
+            });
+
+            tr.innerHTML = `
+              <td class="font-bold text-slate-400">#${idx + 1}</td>
+              <td class="font-semibold font-mono text-slate-300">${a.dorsal || "-"}</td>
+              <td>
+                <div class="font-bold text-white">${a.nombres || ""} ${a.apellidos || ""}</div>
+                <div class="text-xs text-slate-500">${a.datos_adicionales?.club || ""}</div>
+              </td>
+              ${dynamicCells}
+              <td class="font-black text-xl text-emerald-400 tabular-nums font-mono">${r.tiempo_final || "-"}</td>
+              <td class="text-xs text-slate-500">${fmtDate(r.created_at)}</td>
+            `;
+            rankBody.appendChild(tr);
+          });
+        }
+
+        function fmtDate(iso) {
+          return new Date(iso).toLocaleString("es-CO", { hour12: false });
+        }
+
+        function timeToMs(timeStr) {
+          if (!timeStr || typeof timeStr !== "string") return 999999999;
+          const trimmed = timeStr.trim();
+          const parts = trimmed.split(":");
+          if (parts.length !== 2 && parts.length !== 3) return 999999999;
+
+          // Handle HH:MM:SS.CC or MM:SS.CC
+          // Reusing logic ensuring checking length
+          let h = 0,
+            m = 0,
+            s = 0,
+            c = 0;
+          if (parts.length === 3) {
+            h = parseInt(parts[0]) || 0;
+            m = parseInt(parts[1]) || 0;
+            const sec = parts[2].split(".");
+            s = parseInt(sec[0]) || 0;
+            c = parseInt(sec[1] || 0);
+            if (sec.length > 1 && sec[1].length === 1) c *= 10;
+          } else {
+            m = parseInt(parts[0]) || 0;
+            const sec = parts[1].split(".");
+            s = parseInt(sec[0]) || 0;
+            c = parseInt(sec[1] || 0);
+            if (sec.length > 1 && sec[1].length === 1) c *= 10;
+          }
+
+          return h * 3600000 + m * 60000 + s * 1000 + c * 10;
+        }
+
+        // --- SETUP ---
+        try {
+          const { data: config } = await supabase
+            .from("configuracion_evento")
+            .select("*")
+            .limit(1)
+            .single();
+          if (config) {
+            currentEventId = config.evento_activo_id;
+
+            // Headers
+            if (config.logo_url) {
+              const headerDiv = document.querySelector("header div.max-w-5xl");
+              // Remove previous if any
+              const prev = headerDiv.querySelector("img");
+              if (prev) prev.remove();
+
+              const img = document.createElement("img");
+              img.src = config.logo_url;
+              img.className = "h-10 w-auto object-contain mr-2 rounded";
+              headerDiv.insertBefore(img, headerDiv.children[0]);
+            }
+            if (config.nombre_evento) {
+              document.title = "Ranking - " + config.nombre_evento;
+              const titleDiv = document.querySelector("header div.font-black");
+              if (titleDiv) titleDiv.textContent = config.nombre_evento;
+            }
+
+            // Fields
+            let fields = config.configuracion_fields;
+            if (typeof fields === "string") fields = JSON.parse(fields);
+            configFields = Array.isArray(fields) ? fields : [];
+
+            // Render Filters
+            filtersContainer.innerHTML =
+              '<span class="text-xs text-slate-400 uppercase font-bold mr-1">Filtrar:</span>';
+            configFields.forEach((f) => {
+              if (f.active !== false && f.is_filter && f.type === "select") {
+                const select = document.createElement("select");
+                select.id = `filter_${f.key}`;
+                select.className =
+                  "bg-slate-800 text-slate-100 rounded-lg px-2 py-1 text-sm border-0 focus:ring-1 focus:ring-emerald-400";
+                select.innerHTML = `<option value="ALL">Todos (${f.label})</option>`;
+                (Array.isArray(f.options)
+                  ? f.options
+                  : (f.options || "").split(",")
+                ).forEach((o) => {
+                  const val = o.trim();
+                  select.innerHTML += `<option value="${val}">${val}</option>`;
+                });
+                select.addEventListener("change", window.loadRankingFn);
+                filtersContainer.appendChild(select);
+              }
+            });
+
+            // Render Headers
+            let html = `<th>Pos</th>`;
+            // Dorsal Logic
+            const dorsalField = configFields.find((f) => f.key === "dorsal");
+            if (dorsalField && dorsalField.active === false) {
+              const style = document.createElement("style");
+              style.innerHTML = `#th-dorsal, td:nth-child(2) { display: none !important; }`;
+              document.head.appendChild(style);
+              html += `<th id="th-dorsal" class="hidden">Dorsal</th>`;
+            } else {
+              html += `<th id="th-dorsal">Dorsal</th>`;
+            }
+            html += `<th>Atleta</th>`;
+            configFields.forEach((f) => {
+              if (
+                f.active !== false &&
+                f.show_in_ranking &&
+                !["dorsal", "nombres", "apellidos"].includes(f.key)
+              ) {
+                html += `<th>${f.label}</th>`;
+              }
+            });
+            html += `<th>Tiempo</th><th>Fecha</th>`;
+            tableHeader.innerHTML = html;
+
+            // Initial Load
+            await window.loadRankingFn();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        // Listeners
+        document
+          .getElementById("refreshBtn")
+          .addEventListener("click", window.loadRankingFn);
+
+        // Realtime
+        supabase
+          .channel("results-live")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "resultados" },
+            async (payload) => {
+              console.log("Cambio en realtime detectado (Ranking):", payload);
+              if (window.loadRankingFn) await window.loadRankingFn();
+            },
+          )
+          .subscribe();
+      });
+
+      // Detectar navegación Back/Forward (BFCache)
+      window.addEventListener("pageshow", async (event) => {
+        if (event.persisted) {
+          await safeLoadRanking();
+        }
+      });
+    </script>
+  </body>
+</html>
