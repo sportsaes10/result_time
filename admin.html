@@ -12,86 +12,118 @@
 </head>
 
 <body class="bg-slate-950 text-slate-100 min-h-screen">
-  <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
-      <a href="./ranking.html" class="text-slate-300 hover:text-white">← Volver</a>
-      <div class="font-black text-xl">⚙️ Administración del Evento</div>
-      <button id="exportBtn" class="ml-auto bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-2">
-        📊 Exportar Excel
-      </button>
-    </div>
-  </header>
-
-  <main class="max-w-4xl mx-auto px-4 py-6 grid gap-6 pb-20">
-
-    <!-- Gestión de Evento -->
-    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 mb-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold text-emerald-400">Personalización del Evento</h2>
-        <div class="text-xs text-slate-400">ID Evento: <span id="eventIdDisplay" class="font-mono">...</span></div>
+  <!-- Login Container -->
+  <div id="loginContainer" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-black text-emerald-400 mb-2">Acceso Administrativo</h1>
+        <p class="text-slate-400 text-sm">Ingresa tus credenciales para gestionar el evento.</p>
       </div>
-      
-      <div class="grid gap-4 mb-6">
-        <label class="grid gap-1">
-          <span class="text-sm text-slate-300">Nombre del Evento</span>
-          <input id="eventName" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
-        </label>
-        <label class="grid gap-1">
-          <span class="text-sm text-slate-300">URL del Logo</span>
-          <input id="logoUrl" placeholder="https://..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
-        </label>
-        <button id="saveGeneralBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition w-full md:w-auto self-start">
-          Guardar Información General
+      <form id="loginForm" class="grid gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
+          <input id="loginEmail" type="email" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-colors" placeholder="admin@evento.com" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contraseña</label>
+          <input id="loginPassword" type="password" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-colors" placeholder="••••••••" />
+        </div>
+        <div id="loginError" class="text-red-400 text-xs hidden"></div>
+        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl transition-transform active:scale-95">
+          Ingresar
         </button>
-      </div>
-
-       <hr class="border-slate-800 my-6" />
-
-       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-bold text-blue-400">Gestor de Campos (Formulario)</h3>
-        <button id="addFieldBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center gap-1">
-          + Nuevo Campo
-        </button>
-      </div>
-
-      <div class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800">
-        <table class="w-full text-sm text-left">
-          <thead class="text-slate-400 bg-slate-900/50 uppercase text-xs">
-            <tr>
-              <th class="px-4 py-3">Etiqueta</th>
-              <th class="px-4 py-3">Tipo</th>
-              <th class="px-4 py-3">Opciones</th>
-              <th class="px-4 py-3 text-center">Visible</th>
-              <th class="px-4 py-3 text-center">Obligatorio</th>
-              <th class="px-4 py-3 text-center">Filtro Ranking</th>
-              <th class="px-4 py-3 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="fieldsTableBody" class="divide-y divide-slate-800"></tbody>
-        </table>
-      </div>
-      <p class="text-xs text-slate-500 mt-2">* Campos de sistema (Dorsal, Nombres) tienen restricciones de edición.</p>
-    </section>
-
-    <!-- Acciones Avanzadas -->
-    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 border-l-4 border-l-red-500">
-      <h2 class="text-xl font-bold mb-4 text-red-400">Zona de Peligro / Archivo</h2>
-      <p class="text-slate-300 text-sm mb-4">
-        Si el evento finalizó, puedes <strong>Archivar</strong> los datos actuales. Esto guardará todo en el historial y preparará el sistema para un <strong>Nuevo Evento</strong> limpio.
-      </p>
-      <button id="archiveBtn" class="bg-red-900/50 hover:bg-red-800 text-red-100 border border-red-700 font-bold py-3 px-6 rounded-xl transition flex items-center gap-2">
-        📦 Archivar Evento Actual e Iniciar Uno Nuevo
-      </button>
-    </section>
-
-  </main>
-
-  <footer class="mt-auto py-6 border-t border-slate-800 text-center">
-    <div class="flex flex-col items-center justify-center gap-2">
-       <p class="text-slate-500 text-sm">Desarrollado por</p>
-       <img src="./logos/sportsaes_blanco.png" alt="SPORTSAES SAS" class="h-12 opacity-80 hover:opacity-100 transition-opacity">
+      </form>
     </div>
-  </footer>
+  </div>
+
+  <!-- App Content (Protected) -->
+  <div id="appContent" class="hidden">
+    <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        <a href="./ranking.html" class="text-slate-300 hover:text-white">← Volver</a>
+        <div class="font-black text-xl">⚙️ Administración del Evento</div>
+        <div class="ml-auto flex gap-2">
+          <button id="exportBtn" class="bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-2">
+            📊 Exportar
+          </button>
+          <button id="logoutBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold py-2 px-3 rounded-xl">
+            Salir
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 grid gap-6 pb-20">
+
+      <!-- Gestión de Evento -->
+      <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-emerald-400">Personalización del Evento</h2>
+          <div class="text-xs text-slate-400">ID Evento: <span id="eventIdDisplay" class="font-mono">...</span></div>
+        </div>
+        
+        <div class="grid gap-4 mb-6">
+          <label class="grid gap-1">
+            <span class="text-sm text-slate-300">Nombre del Evento</span>
+            <input id="eventName" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+          </label>
+          <label class="grid gap-1">
+            <span class="text-sm text-slate-300">URL del Logo</span>
+            <input id="logoUrl" placeholder="https://..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2" />
+          </label>
+          <button id="saveGeneralBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition w-full md:w-auto self-start">
+            Guardar Información General
+          </button>
+        </div>
+
+         <hr class="border-slate-800 my-6" />
+
+         <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-blue-400">Gestor de Campos (Formulario)</h3>
+          <button id="addFieldBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center gap-1">
+            + Nuevo Campo
+          </button>
+        </div>
+
+        <div class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800">
+          <table class="w-full text-sm text-left">
+            <thead class="text-slate-400 bg-slate-900/50 uppercase text-xs">
+              <tr>
+                <th class="px-4 py-3">Etiqueta</th>
+                <th class="px-4 py-3">Tipo</th>
+                <th class="px-4 py-3">Opciones</th>
+                <th class="px-4 py-3 text-center">Visible</th>
+                <th class="px-4 py-3 text-center">Obligatorio</th>
+                <th class="px-4 py-3 text-center">Filtro Ranking</th>
+                <th class="px-4 py-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="fieldsTableBody" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">* Campos de sistema (Dorsal, Nombres) tienen restricciones de edición.</p>
+      </section>
+
+      <!-- Acciones Avanzadas -->
+      <section class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 border-l-4 border-l-red-500">
+        <h2 class="text-xl font-bold mb-4 text-red-400">Zona de Peligro / Archivo</h2>
+        <p class="text-slate-300 text-sm mb-4">
+          Si el evento finalizó, puedes <strong>Archivar</strong> los datos actuales. Esto guardará todo en el historial y preparará el sistema para un <strong>Nuevo Evento</strong> limpio.
+        </p>
+        <button id="archiveBtn" class="bg-red-900/50 hover:bg-red-800 text-red-100 border border-red-700 font-bold py-3 px-6 rounded-xl transition flex items-center gap-2">
+          📦 Archivar Evento Actual e Iniciar Uno Nuevo
+        </button>
+      </section>
+
+    </main>
+
+    <footer class="mt-auto py-6 border-t border-slate-800 text-center">
+      <div class="flex flex-col items-center justify-center gap-2">
+         <p class="text-slate-500 text-sm">Desarrollado por</p>
+         <img src="./logos/sportsaes_blanco.png" alt="SPORTSAES SAS" class="h-12 opacity-80 hover:opacity-100 transition-opacity">
+      </div>
+    </footer>
+  </div>
 
   <!-- Modal Edición Campo -->
   <dialog id="fieldModal" class="bg-slate-900 text-slate-100 border border-slate-700 rounded-2xl p-6 backdrop:bg-slate-950/80 w-full max-w-md">
@@ -165,7 +197,51 @@
       let currentConfig = { fields: [] };
       let currentEventId = null;
 
-      // 1. Cargar Configuración
+      // --- AUTH SYSTEM ---
+      const loginContainer = document.getElementById("loginContainer");
+      const appContent = document.getElementById("appContent");
+      const loginForm = document.getElementById("loginForm");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      async function checkSession() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+           loginContainer.classList.add("hidden");
+           appContent.classList.remove("hidden");
+           loadConfig(); // Solo cargar si hay sesion
+        } else {
+           loginContainer.classList.remove("hidden");
+           appContent.classList.add("hidden");
+        }
+      }
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+        const errDiv = document.getElementById("loginError");
+        
+        errDiv.classList.add("hidden");
+        
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+           errDiv.textContent = "Error: " + error.message;
+           errDiv.classList.remove("hidden");
+        } else {
+           checkSession();
+        }
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+         await supabase.auth.signOut();
+         checkSession();
+      });
+
+      // Start auth check
+      checkSession();
+
+      // 1. Cargar Configuración (La llamamos desde checkSession)
       async function loadConfig() {
         const { data, error } = await supabase.from("configuracion_evento").select("*").limit(1).single();
         if (data) {

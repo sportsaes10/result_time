@@ -324,9 +324,15 @@
           const div = document.createElement("div");
           div.className = "px-3 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex justify-between items-center";
           div.innerHTML = `
-            <span>${a.dorsal} - ${a.nombres} ${a.apellidos} (${a.genero})</span>
-            <span class="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400">${a.categoria || "Libre"}</span>
-          `;
+          const spanInfo = document.createElement("span");
+          spanInfo.textContent = `${a.dorsal} - ${a.nombres} ${a.apellidos} (${a.genero})`;
+          
+          const spanCat = document.createElement("span");
+          spanCat.className = "text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400";
+          spanCat.textContent = a.categoria || "Libre";
+          
+          div.appendChild(spanInfo);
+          div.appendChild(spanCat);
           div.addEventListener("click", () => {
             athleteSearch.value = `${a.dorsal} - ${a.nombres} ${a.apellidos}`;
             selectedAthleteId.value = a.id;
@@ -393,20 +399,35 @@
           const athleteName = (dorsal || nombres) ? `${dorsal} - ${nombres} ${apellidos}` : "Atleta Desconocido";
 
           tr.innerHTML = `
-        <td class="font-semibold">${athleteName}</td>
-        <td>${r.timestamp_meta ? new Date(r.timestamp_meta).toLocaleTimeString("es-CO", { hour12: false }) : "-"}</td>
-        <td class="font-black text-emerald-300">${r.tiempo_final || "-"}</td>
-        <td class="text-slate-300">${fmtDate(r.created_at)}</td>
-        <td>
-           <button class="bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn" 
-             data-id="${r.id}" 
-             data-athlete-id="${r.atleta_id}"
-             data-athlete-name="${athleteName}"
-             data-time="${r.tiempo_final}">
-             ✏️
-           </button>
-        </td>
-      `;
+          const tdName = document.createElement("td");
+          tdName.className = "font-semibold";
+          tdName.textContent = athleteName;
+          tr.appendChild(tdName);
+
+          const tdMeta = document.createElement("td");
+          tdMeta.textContent = r.timestamp_meta ? new Date(r.timestamp_meta).toLocaleTimeString("es-CO", { hour12: false }) : "-";
+          tr.appendChild(tdMeta);
+
+          const tdTime = document.createElement("td");
+          tdTime.className = "font-black text-emerald-300";
+          tdTime.textContent = r.tiempo_final || "-";
+          tr.appendChild(tdTime);
+
+          const tdDate = document.createElement("td");
+          tdDate.className = "text-slate-300";
+          tdDate.textContent = fmtDate(r.created_at);
+          tr.appendChild(tdDate);
+
+          const tdAction = document.createElement("td");
+          const btnEdit = document.createElement("button");
+          btnEdit.className = "bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn";
+          btnEdit.dataset.id = r.id;
+          btnEdit.dataset.athleteId = r.atleta_id;
+          btnEdit.dataset.athleteName = athleteName;
+          btnEdit.dataset.time = r.tiempo_final;
+          btnEdit.textContent = "✏️";
+          tdAction.appendChild(btnEdit);
+          tr.appendChild(tdAction);
           resultsBody.appendChild(tr);
         });
 

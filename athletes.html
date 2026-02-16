@@ -398,22 +398,37 @@
 
           // Serializar datos para el botón de edición
           const athleteData = encodeURIComponent(JSON.stringify(a));
+          
+          // Helper for cell creation
+          const createCell = (text, cls = "") => {
+             const td = document.createElement("td");
+             if(cls) td.className = cls;
+             td.textContent = text || "-";
+             return td;
+          };
 
-          tr.innerHTML = `
-          <td class="font-semibold">${a.dorsal}</td>
-          <td>${a.nombres || "-"}</td>
-          <td>${a.apellidos || "-"}</td>
-          <td>${a.genero || "-"}</td>
-          <td><span class="bg-slate-800 px-2 py-1 rounded text-xs">${a.categoria || "Libre"}</span></td>
-          <td class="text-slate-300">${a.club || "-"}</td>
-          <td class="text-slate-300">${fmtDate(a.created_at)}</td>
-          <td>
-             <button class="bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn" 
-               data-athlete="${athleteData}">
-               ✏️
-             </button>
-          </td>
-        `;
+          tr.appendChild(createCell(a.dorsal, "font-semibold"));
+          tr.appendChild(createCell(a.nombres));
+          tr.appendChild(createCell(a.apellidos));
+          tr.appendChild(createCell(a.genero));
+          
+          const tdCat = document.createElement("td");
+          const spanCat = document.createElement("span");
+          spanCat.className = "bg-slate-800 px-2 py-1 rounded text-xs";
+          spanCat.textContent = a.categoria || "Libre";
+          tdCat.appendChild(spanCat);
+          tr.appendChild(tdCat);
+
+          tr.appendChild(createCell(a.club, "text-slate-300"));
+          tr.appendChild(createCell(fmtDate(a.created_at), "text-slate-300"));
+
+          const tdAction = document.createElement("td");
+          const btnEdit = document.createElement("button");
+          btnEdit.className = "bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn";
+          btnEdit.dataset.athlete = athleteData;
+          btnEdit.textContent = "✏️";
+          tdAction.appendChild(btnEdit);
+          tr.appendChild(tdAction);
           athletesBody.appendChild(tr);
         });
 
@@ -506,14 +521,30 @@
 
               const div = document.createElement("div");
               div.className = "px-4 py-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 transition-colors";
-              div.innerHTML = `
-                <div class="font-bold text-slate-200">${a.nombres} ${a.apellidos}</div>
-                <div class="text-xs text-slate-500 flex gap-2">
-                   <span>${a.numero_documento || "Sin Doc"}</span>
-                   <span>•</span>
-                   <span>${a.club || "Sin Club"}</span>
-                </div>
-              `;
+              div.innerHTML = ""; // Clear content to build safely
+              
+              const nameDiv = document.createElement("div");
+              nameDiv.className = "font-bold text-slate-200";
+              nameDiv.textContent = `${a.nombres} ${a.apellidos}`;
+              
+              const infoDiv = document.createElement("div");
+              infoDiv.className = "text-xs text-slate-500 flex gap-2";
+              
+              const spanDoc = document.createElement("span");
+              spanDoc.textContent = a.numero_documento || "Sin Doc";
+              
+              const spanSep = document.createElement("span");
+              spanSep.textContent = "•";
+              
+              const spanClub = document.createElement("span");
+              spanClub.textContent = a.club || "Sin Club";
+              
+              infoDiv.appendChild(spanDoc);
+              infoDiv.appendChild(spanSep);
+              infoDiv.appendChild(spanClub);
+              
+              div.appendChild(nameDiv);
+              div.appendChild(infoDiv);
               div.addEventListener("click", () => {
                 fillFormWithHistory(a);
                 globalSearchResults.classList.add("hidden");

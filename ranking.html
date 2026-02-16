@@ -209,7 +209,31 @@
             tr.className =
               "[&>td]:py-2 [&>td]:px-2 sm:[&>td]:px-3 border-b border-slate-800 last:border-0 hover:bg-slate-900/50 transition-colors text-xs sm:text-sm";
 
-            let dynamicCells = "";
+            // 1. Pos
+            const tdPos = document.createElement("td");
+            tdPos.className = "font-bold text-slate-400";
+            tdPos.textContent = `#${idx + 1}`;
+            tr.appendChild(tdPos);
+
+            // 2. Dorsal
+            const tdDorsal = document.createElement("td");
+            tdDorsal.className = "font-semibold font-mono text-slate-300";
+            tdDorsal.textContent = a.dorsal || "-";
+            tr.appendChild(tdDorsal);
+
+            // 3. Atleta
+            const tdAtleta = document.createElement("td");
+            const divName = document.createElement("div");
+            divName.className = "font-bold text-white";
+            divName.textContent = `${a.nombres || ""} ${a.apellidos || ""}`;
+            const divClub = document.createElement("div");
+            divClub.className = "text-xs text-slate-500";
+            divClub.textContent = a.datos_adicionales?.club || "";
+            tdAtleta.appendChild(divName);
+            tdAtleta.appendChild(divClub);
+            tr.appendChild(tdAtleta);
+
+            // 4. Dynamic Cells
             configFields.forEach((f) => {
               if (
                 f.show_in_ranking &&
@@ -218,25 +242,31 @@
                 let val = flatAtleta[f.key];
                 if (val === undefined || val === null) val = "-";
 
+                const td = document.createElement("td");
                 if (f.key === "categoria" || f.key === "genero") {
-                  dynamicCells += `<td><span class="bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium">${val}</span></td>`;
+                   const span = document.createElement("span");
+                   span.className = "bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium";
+                   span.textContent = val;
+                   td.appendChild(span);
                 } else {
-                  dynamicCells += `<td>${val}</td>`;
+                   td.textContent = val;
                 }
+                tr.appendChild(td);
               }
             });
 
-            tr.innerHTML = `
-              <td class="font-bold text-slate-400">#${idx + 1}</td>
-              <td class="font-semibold font-mono text-slate-300">${a.dorsal || "-"}</td>
-              <td>
-                <div class="font-bold text-white">${a.nombres || ""} ${a.apellidos || ""}</div>
-                <div class="text-xs text-slate-500">${a.datos_adicionales?.club || ""}</div>
-              </td>
-              ${dynamicCells}
-              <td class="font-black text-xl text-emerald-400 tabular-nums font-mono">${r.tiempo_final || "-"}</td>
-              <td class="text-xs text-slate-500">${fmtDate(r.created_at)}</td>
-            `;
+            // 5. Tiempo
+            const tdTime = document.createElement("td");
+            tdTime.className = "font-black text-xl text-emerald-400 tabular-nums font-mono";
+            tdTime.textContent = r.tiempo_final || "-";
+            tr.appendChild(tdTime);
+
+            // 6. Fecha
+            const tdDate = document.createElement("td");
+            tdDate.className = "text-xs text-slate-500";
+            tdDate.textContent = fmtDate(r.created_at);
+            tr.appendChild(tdDate);
+
             rankBody.appendChild(tr);
           });
         }
@@ -317,13 +347,21 @@
                 select.id = `filter_${f.key}`;
                 select.className =
                   "bg-slate-800 text-slate-100 rounded-lg px-2 py-1 text-sm border-0 focus:ring-1 focus:ring-emerald-400";
-                select.innerHTML = `<option value="ALL">Todos (${f.label})</option>`;
+                select.innerHTML = ""; // Clear
+                const defaultOpt = document.createElement("option");
+                defaultOpt.value = "ALL";
+                defaultOpt.textContent = `Todos (${f.label})`;
+                select.appendChild(defaultOpt);
+
                 (Array.isArray(f.options)
                   ? f.options
                   : (f.options || "").split(",")
                 ).forEach((o) => {
                   const val = o.trim();
-                  select.innerHTML += `<option value="${val}">${val}</option>`;
+                  const opt = document.createElement("option");
+                  opt.value = val;
+                  opt.textContent = val;
+                  select.appendChild(opt);
                 });
                 select.addEventListener("change", window.loadRankingFn);
                 filtersContainer.appendChild(select);
