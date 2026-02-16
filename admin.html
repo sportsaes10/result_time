@@ -226,10 +226,18 @@
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         
         if (error) {
-           errDiv.textContent = "Error: " + error.message;
+           console.error("Login Error:", error);
+           let msg = error.message;
+           if (msg.includes("Email not confirmed")) {
+             msg = "⚠️ Tu email no ha sido confirmado. Revisa tu bandeja de entrada/spam.";
+           } else if (msg.includes("Invalid login credentials")) {
+             msg = "❌ Credenciales incorrectas. Verifica tu correo y contraseña.";
+           }
+           errDiv.textContent = msg;
            errDiv.classList.remove("hidden");
         } else {
-           checkSession();
+           console.log("Login successful:", data);
+           await checkSession();
         }
       });
 
