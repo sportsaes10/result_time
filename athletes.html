@@ -7,6 +7,7 @@
   <title>Registro de atletas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script src="./config.js"></script>
 </head>
 
@@ -24,18 +25,41 @@
   </header>
 
   <main class="max-w-3xl mx-auto px-4 py-6">
-    <div class="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 mb-4 flex flex-col md:flex-row gap-3 items-center justify-between">
-      <div class="flex items-center gap-2 text-blue-300">
-        <span class="text-xl">🔍</span>
-        <div class="text-sm">
-          <div class="font-bold">¿Ya participó antes?</div>
-          <div class="opacity-80">Busca por cédula o nombre para autocompletar</div>
+    <div class="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 mb-4 grid gap-4">
+      <!-- Buscador -->
+      <div class="flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div class="flex items-center gap-2 text-blue-300">
+          <span class="text-xl">🔍</span>
+          <div class="text-sm">
+            <div class="font-bold">¿Ya participó antes?</div>
+            <div class="opacity-80">Busca por cédula o nombre para autocompletar</div>
+          </div>
+        </div>
+        <div class="relative w-full md:w-64">
+          <input id="globalSearch" type="text" placeholder="Buscar en historial..." 
+            class="w-full bg-slate-950 border border-blue-900/50 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all shadow-inner" />
+          <div id="globalSearchResults" class="absolute top-14 left-0 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 hidden max-h-60 overflow-y-auto"></div>
         </div>
       </div>
-      <div class="relative w-full md:w-auto md:min-w-[300px]">
-        <input id="globalSearch" type="text" placeholder="Buscar en historial..." 
-          class="w-full bg-slate-950 border border-blue-900/50 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all" />
-        <div id="globalSearchResults" class="absolute top-12 left-0 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 hidden max-h-60 overflow-y-auto"></div>
+      
+      <!-- Divisor -->
+      <div class="h-px w-full bg-blue-900/50"></div>
+
+      <!-- Carga Masiva Excel -->
+      <div class="flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div class="flex items-center gap-2 text-emerald-400">
+          <span class="text-xl">📊</span>
+          <div class="text-sm">
+            <div class="font-bold">Carga Masiva (Excel)</div>
+            <div class="opacity-80">Sube múltiples de atletas a la vez (.xlsx, .xls)</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 bg-slate-950/50 border border-slate-800 p-2 rounded-xl text-sm w-full md:w-auto">
+          <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full md:w-48 text-xs file:mr-2 file:py-1.5 file:px-3 file:cursor-pointer file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-900/50 file:text-emerald-300 hover:file:bg-emerald-800/50 text-slate-400 transition-colors"/>
+          <button id="importBtn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg font-bold transition cursor-pointer flex-shrink-0 shadow-lg shadow-emerald-900/20">
+            Importar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -147,6 +171,15 @@
 
       <div id="msg" class="text-sm text-slate-300"></div>
     </form>
+    
+    <!-- Carga Masiva (Mobile view fallback o alert area si es necesario) -->
+    <div id="importArea" class="mt-4 hidden p-4 bg-emerald-900/20 border border-emerald-800 rounded-2xl text-sm">
+       <div class="flex justify-between items-center mb-2">
+         <div class="font-bold text-emerald-400" id="importStatus">Progreso de importación</div>
+         <button onclick="document.getElementById('importArea').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+       </div>
+       <div id="importLog" class="text-slate-300 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-xs"></div>
+    </div>
 
     <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
       <div class="flex items-center gap-2">
@@ -382,12 +415,23 @@
 
       async function loadAthletes() {
         if (!currentEventId) return;
-        const { data, error } = await supabase
-          .from("atletas")
-          .select("*")
-          .eq("evento_id", currentEventId)
-          .order("created_at", { ascending: false })
-          .limit(20);
+        
+        let data, error;
+        if (window.dataSource === 'local') {
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/get-athletes`);
+            data = await res.json();
+          } catch (e) { error = e; }
+        } else {
+          const res = await supabase
+            .from("atletas")
+            .select("*")
+            .eq("evento_id", currentEventId)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          data = res.data;
+          error = res.error;
+        }
 
         if (error) { console.error(error); return; }
 
@@ -423,20 +467,41 @@
           tr.appendChild(createCell(fmtDate(a.created_at), "text-slate-300"));
 
           const tdAction = document.createElement("td");
+          tdAction.className = "flex gap-1";
+
           const btnEdit = document.createElement("button");
           btnEdit.className = "bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn";
           btnEdit.dataset.athlete = athleteData;
           btnEdit.textContent = "✏️";
+          btnEdit.title = "Editar";
           tdAction.appendChild(btnEdit);
+
+          const btnDelete = document.createElement("button");
+          btnDelete.className = "bg-red-900/50 hover:bg-red-800 text-red-300 px-2 py-1 rounded text-xs delete-btn";
+          btnDelete.dataset.id = a.id;
+          btnDelete.dataset.name = `${a.nombres} ${a.apellidos}`;
+          btnDelete.textContent = "🗑️";
+          btnDelete.title = "Eliminar";
+          tdAction.appendChild(btnDelete);
+
           tr.appendChild(tdAction);
           athletesBody.appendChild(tr);
         });
 
-        // Asignar eventos a botones
+        // Asignar eventos a botones de editar
         document.querySelectorAll(".edit-btn").forEach(btn => {
           btn.addEventListener("click", () => {
             const data = JSON.parse(decodeURIComponent(btn.dataset.athlete));
             startEditing(data);
+          });
+        });
+
+        // Asignar eventos a botones de eliminar
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            deleteAthlete(id, name);
           });
         });
       }
@@ -466,6 +531,46 @@
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
         msg.textContent = "✏️ Editando atleta...";
+      }
+
+      async function deleteAthlete(id, name) {
+        const confirmed = confirm(`¿Estás seguro de eliminar al atleta "${name}"?\n\nEsta acción no se puede deshacer.`);
+        if (!confirmed) return;
+
+        msg.textContent = "Eliminando...";
+        msg.className = "text-sm text-yellow-400";
+
+        let error = null;
+
+        if (window.dataSource === 'local') {
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/delete-athlete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            if (!res.ok) throw new Error(await res.text());
+          } catch (e) { error = e; }
+        } else {
+          const res = await supabase.from("atletas").delete().eq("id", id);
+          error = res.error;
+        }
+
+        if (error) {
+          msg.textContent = "Error al eliminar: " + error.message;
+          msg.className = "text-sm text-red-400";
+          return;
+        }
+
+        msg.textContent = "✅ Atleta eliminado correctamente.";
+        msg.className = "text-sm text-emerald-400";
+
+        // Si estábamos editando este atleta, cancelar edición
+        if (currentEditId === id) {
+          cancelEditing();
+        }
+
+        await loadAthletes();
       }
 
       function cancelEditing() {
@@ -631,14 +736,23 @@
 
         let error = null;
 
-        if (currentEditId) {
-          // UPDATE
-          const res = await supabase.from("atletas").update(payload).eq("id", currentEditId);
-          error = res.error;
+        if (window.dataSource === 'local') {
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/save-athlete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(await res.text());
+          } catch (e) { error = e; }
         } else {
-          // INSERT
-          const res = await supabase.from("atletas").insert(payload);
-          error = res.error;
+          if (currentEditId) {
+            const res = await supabase.from("atletas").update(payload).eq("id", currentEditId);
+            error = res.error;
+          } else {
+            const res = await supabase.from("atletas").insert(payload);
+            error = res.error;
+          }
         }
 
         // FALLBACK: Si falla porque no existe la columna 'categoria', intentamos sin ella
@@ -674,6 +788,160 @@
       });
 
       document.getElementById("reload").addEventListener("click", loadAthletes);
+
+      // --- LÓGICA DE CARGA MASIVA ---
+      const excelFileInput = document.getElementById("excelFile");
+      const importBtn = document.getElementById("importBtn");
+      const importArea = document.getElementById("importArea");
+      const importStatus = document.getElementById("importStatus");
+      const importLog = document.getElementById("importLog");
+
+      importBtn.addEventListener("click", async () => {
+        const file = excelFileInput.files[0];
+        if (!file) {
+          alert("Por favor, selecciona un archivo Excel primero.");
+          return;
+        }
+
+        importArea.classList.remove("hidden");
+        importStatus.textContent = "Leyendo archivo...";
+        importLog.textContent = "Preparando datos...\n";
+        importBtn.disabled = true;
+        importBtn.textContent = "Procesando...";
+
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+          try {
+            const data = e.target.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            // header: 1 permite leer primera fila como array, 
+            // pero usar defval: "" previene valores vacíos
+            const json = XLSX.utils.sheet_to_json(worksheet); 
+
+            if (json.length === 0) {
+               importStatus.textContent = "❌ Archivo vacío";
+               return;
+            }
+
+            importLog.textContent += `Se encontraron ${json.length} filas. Preparando el lote...\n`;
+            
+            const batch = [];
+            let errors = 0;
+
+            for (let i = 0; i < json.length; i++) {
+              const row = json[i];
+              // Mapeo Heurístico basado en el archivo proporcionado
+              const nombreCompleto = (row['Nombre Completo'] || row['Nombre'] || "").toString().trim();
+              
+              // Separar Nombre Completo (heurística básica: mitad y mitad o primera palabra y resto)
+              let nombres = "";
+              let apellidos = "-";
+              if (nombreCompleto) {
+                 const partes = nombreCompleto.split(" ");
+                 if (partes.length > 2) {
+                    const mid = Math.ceil(partes.length / 2);
+                    nombres = partes.slice(0, mid).join(" ");
+                    apellidos = partes.slice(mid).join(" ");
+                 } else if (partes.length === 2) {
+                    nombres = partes[0];
+                    apellidos = partes[1];
+                 } else {
+                    nombres = nombreCompleto;
+                 }
+              } else {
+                  errors++;
+                  continue; // Saltamos fila si no hay nombre
+              }
+
+              const docNum = (row['Número de Documento'] || row['Documento'] || "").toString().trim();
+              if(!docNum) {
+                 errors++;
+                 continue; // Obligatorio
+              }
+              
+              const dorsal = docNum; // Usaremos docnum temporalmente como dorsal ya que es NOT NULL
+
+              const genStr = (row['Género '] || row['Genero'] || "M").toString().trim().toLowerCase();
+              let genero = "M"; // Default
+              if (genStr.includes("femenino") || genStr === "f") {
+                genero = "F";
+              }
+
+              batch.push({
+                 dorsal: dorsal,
+                 nombres: nombres,
+                 apellidos: apellidos,
+                 tipo_documento: (row['Tipo de Documento'] || "CC").toString().trim(),
+                 numero_documento: docNum,
+                 telefono: (row['Teléfono'] || row['Telefono'] || "").toString().trim(),
+                 edad: parseInt(row['Edad']) || null,
+                 genero: genero, 
+                 categoria: (row['Categoria'] || row['Categoría'] || "").toString().trim(),
+                 evento_id: currentEventId, // Asegurarnos de usar evento si aplica
+                 departamento: null, // Estos campos no mapean directamente del excel según lo provisto
+                 municipio: null,
+                 localidad: (row['Barrio'] || row['Dirección '] || "").toString().substring(0,250),
+                 club: null // No viene en el excel provisto
+              });
+            }
+
+            if (batch.length === 0) {
+               importStatus.textContent = "❌ No se encontraron datos válidos (Se requiere Nombre y Documento).";
+               return;
+            }
+
+            importLog.textContent += `Se procesarán ${batch.length} registros válidos (${errors} ignorados por falta de datos).\n`;
+            importLog.textContent += `Enviando a la base de datos...\n`;
+
+            // Enviar por CHUNKS por si son muchos
+            const chunkSize = 50;
+            let successCount = 0;
+            let dbErrors = 0;
+
+            for (let i = 0; i < batch.length; i += chunkSize) {
+              const slice = batch.slice(i, i + chunkSize);
+              const { data: resData, error } = await supabase.from('atletas').insert(slice);
+              
+              if (error) {
+                 console.error("Batch error:", error);
+                 importLog.textContent += `❌ Error en lote ${Math.floor(i/chunkSize)+1}: ${error.message}\n`;
+                 dbErrors++;
+              } else {
+                 successCount += slice.length;
+              }
+            }
+
+            importStatus.textContent = dbErrors === 0 ? "✅ Importación Finalizada" : "⚠️ Importación con errores";
+            importLog.textContent += `\nResumen: ${successCount} insertados correctamente.\n`;
+            
+            // Refrescar tabla si hubo cambios
+            if (successCount > 0) {
+               await loadAthletes();
+            }
+
+          } catch (err) {
+            console.error(err);
+            importStatus.textContent = "❌ Error procesando el archivo";
+            importLog.textContent += "\nError: " + err.message;
+          } finally {
+            importBtn.disabled = false;
+            importBtn.textContent = "Importar";
+            excelFileInput.value = ""; // Limpiar input
+          }
+        };
+
+        reader.onerror = function(ex) {
+          console.error(ex);
+          importStatus.textContent = "❌ Error leyendo el archivo";
+          importBtn.disabled = false;
+          importBtn.textContent = "Importar";
+        };
+
+        reader.readAsBinaryString(file);
+      });
 
       await loadAthletes();
     });

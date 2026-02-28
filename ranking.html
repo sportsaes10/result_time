@@ -126,16 +126,37 @@
         window.loadRankingFn = async () => {
           if (!currentEventId) return;
 
-          // Fetch Data
-          const { data, error } = await supabase
-            .from("resultados")
-            .select(
-              "id, atleta_id, tiempo_final, tiempo_ms, timestamp_meta, created_at, atletas(dorsal, nombres, apellidos, genero, categoria, datos_adicionales)",
-            )
-            .eq("evento_id", currentEventId)
-            .eq("estado", "finalizado")
-            .order("tiempo_ms", { ascending: true })
-            .order("created_at", { ascending: false });
+          let data, error;
+          if (window.dataSource === 'local') {
+            try {
+              const res = await fetch(`${window.apiBaseUrl}/api/get-ranking`);
+              data = await res.json();
+              // Mapear datos local (aplanar si es necesario para que coincida con la estructura de Supabase)
+              data = data.map(r => ({
+                ...r,
+                atletas: {
+                  dorsal: r.dorsal,
+                  nombres: r.nombres,
+                  apellidos: r.apellidos,
+                  genero: r.genero,
+                  categoria: r.categoria,
+                  club: r.club
+                }
+              }));
+            } catch (e) { error = e; }
+          } else {
+            const res = await supabase
+              .from("resultados")
+              .select(
+                "id, atleta_id, tiempo_final, tiempo_ms, timestamp_meta, created_at, atletas(dorsal, nombres, apellidos, genero, categoria, datos_adicionales)",
+              )
+              .eq("evento_id", currentEventId)
+              .eq("estado", "finalizado")
+              .order("tiempo_ms", { ascending: true })
+              .order("created_at", { ascending: false });
+            data = res.data;
+            error = res.error;
+          }
 
           if (error) {
             console.error(error);
@@ -151,8 +172,20 @@
           emptyState.classList.add("hidden");
 
           // --- FILTRADO DINÁMICO ---
-          const activeFilters = configFields.filter((f) => f.is_filter);
+          // Incluir filtros estándar (categoría y género) + filtros de configuración
+          const standardFilterKeys = ['categoria', 'genero'];
           const textFilters = {};
+
+          // Filtros estándar
+          standardFilterKeys.forEach((key) => {
+            const el = document.getElementById(`filter_${key}`);
+            if (el && el.value !== "ALL") {
+              textFilters[key] = el.value;
+            }
+          });
+
+          // Filtros de configuración (excluyendo los ya procesados)
+          const activeFilters = configFields.filter((f) => f.is_filter && !standardFilterKeys.includes(f.key));
           activeFilters.forEach((f) => {
             const el = document.getElementById(`filter_${f.key}`);
             if (el && el.value !== "ALL") {
@@ -339,11 +372,60 @@
             if (typeof fields === "string") fields = JSON.parse(fields);
             configFields = Array.isArray(fields) ? fields : [];
 
-            // Render Filters
+            // Render Filters - primero cargamos datos para extraer valores únicos
             filtersContainer.innerHTML =
               '<span class="text-xs text-slate-400 uppercase font-bold mr-1">Filtrar:</span>';
+
+            // Cargar datos para extraer categorías y géneros únicos
+            let allData = [];
+            if (window.dataSource === 'local') {
+              try {
+                const res = await fetch(`${window.apiBaseUrl}/api/get-ranking`);
+                allData = await res.json();
+              } catch (e) { console.error(e); }
+            } else {
+              const { data } = await supabase
+                .from("atletas")
+                .select("categoria, genero")
+                .eq("evento_id", currentEventId);
+              allData = data || [];
+            }
+
+            // Extraer valores únicos de categoría y género
+            const uniqueCategories = [...new Set(allData.map(a => a.categoria).filter(Boolean))].sort();
+            const uniqueGenders = [...new Set(allData.map(a => a.genero).filter(Boolean))].sort();
+
+            // Filtros estándar (categoría y género) - siempre visibles si hay datos
+            const standardFilters = [
+              { key: 'categoria', label: 'Categoría', values: uniqueCategories },
+              { key: 'genero', label: 'Género', values: uniqueGenders }
+            ];
+
+            standardFilters.forEach(sf => {
+              if (sf.values.length > 0) {
+                const select = document.createElement("select");
+                select.id = `filter_${sf.key}`;
+                select.className =
+                  "bg-slate-800 text-slate-100 rounded-lg px-2 py-1 text-sm border-0 focus:ring-1 focus:ring-emerald-400";
+                const defaultOpt = document.createElement("option");
+                defaultOpt.value = "ALL";
+                defaultOpt.textContent = `Todos (${sf.label})`;
+                select.appendChild(defaultOpt);
+
+                sf.values.forEach((val) => {
+                  const opt = document.createElement("option");
+                  opt.value = val;
+                  opt.textContent = val;
+                  select.appendChild(opt);
+                });
+                select.addEventListener("change", window.loadRankingFn);
+                filtersContainer.appendChild(select);
+              }
+            });
+
+            // Filtros adicionales de la configuración (excluyendo categoría y género ya manejados)
             configFields.forEach((f) => {
-              if (f.active !== false && f.is_filter && f.type === "select") {
+              if (f.active !== false && f.is_filter && f.type === "select" && !['categoria', 'genero'].includes(f.key)) {
                 const select = document.createElement("select");
                 select.id = `filter_${f.key}`;
                 select.className =
