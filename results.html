@@ -443,6 +443,8 @@
           tr.appendChild(tdDate);
 
           const tdAction = document.createElement("td");
+          tdAction.className = "flex gap-1";
+
           const btnEdit = document.createElement("button");
           btnEdit.className = "bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn";
           btnEdit.dataset.id = r.id;
@@ -450,7 +452,18 @@
           btnEdit.dataset.athleteName = athleteName;
           btnEdit.dataset.time = r.tiempo_final;
           btnEdit.textContent = "✏️";
+          btnEdit.title = "Editar";
           tdAction.appendChild(btnEdit);
+
+          const btnDelete = document.createElement("button");
+          btnDelete.className = "bg-red-900/50 hover:bg-red-800 text-red-300 px-2 py-1 rounded text-xs delete-btn";
+          btnDelete.dataset.id = r.id;
+          btnDelete.dataset.athleteName = athleteName;
+          btnDelete.dataset.time = r.tiempo_final;
+          btnDelete.textContent = "🗑️";
+          btnDelete.title = "Eliminar";
+          tdAction.appendChild(btnDelete);
+
           tr.appendChild(tdAction);
           resultsBody.appendChild(tr);
         });
@@ -464,6 +477,16 @@
             const timeStr = btn.dataset.time;
 
             startEditing(id, athId, athName, timeStr);
+          });
+        });
+
+        // Asignar eventos a botones de eliminar
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const athleteName = btn.dataset.athleteName;
+            const time = btn.dataset.time;
+            deleteResult(id, athleteName, time);
           });
         });
       }
@@ -480,6 +503,46 @@
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
         msg.textContent = "✏️ Editando registro...";
+      }
+
+      async function deleteResult(id, athleteName, time) {
+        const confirmed = confirm(`¿Eliminar el tiempo de "${athleteName}"?\n\nTiempo: ${time}\n\nEsta acción no se puede deshacer.`);
+        if (!confirmed) return;
+
+        msg.textContent = "Eliminando...";
+        msg.className = "text-sm text-yellow-400";
+
+        let error = null;
+
+        if (window.dataSource === 'local') {
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/delete-result`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            if (!res.ok) throw new Error(await res.text());
+          } catch (e) { error = e; }
+        } else {
+          const res = await supabase.from("resultados").delete().eq("id", id);
+          error = res.error;
+        }
+
+        if (error) {
+          msg.textContent = "Error al eliminar: " + error.message;
+          msg.className = "text-sm text-red-400";
+          return;
+        }
+
+        msg.textContent = "✅ Tiempo eliminado correctamente.";
+        msg.className = "text-sm text-emerald-400";
+
+        // Si estábamos editando este resultado, cancelar edición
+        if (currentEditId === id) {
+          cancelEditing();
+        }
+
+        await loadRecentResults();
       }
 
       function cancelEditing() {
