@@ -281,12 +281,23 @@
 
       async function loadAthletes() {
         if (!currentEventId) return;
-        const { data, error } = await supabase
-          .from("atletas")
-          .select("id, dorsal, nombres, apellidos, genero, categoria, numero_documento")
-          .eq("evento_id", currentEventId)
-          .order("dorsal", { ascending: true })
-          .limit(1000);
+        
+        let data, error;
+        if (window.dataSource === 'local') {
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/get-athletes`);
+            data = await res.json();
+          } catch (e) { error = e; }
+        } else {
+          const res = await supabase
+            .from("atletas")
+            .select("id, dorsal, nombres, apellidos, genero, categoria, numero_documento")
+            .eq("evento_id", currentEventId)
+            .order("dorsal", { ascending: true })
+            .limit(1000);
+          data = res.data;
+          error = res.error;
+        }
 
         if (error) { console.error(error); return; }
         allAthletes = data || [];
@@ -373,12 +384,25 @@
       });
 
       async function loadRecentResults() {
-        const { data, error } = await supabase
-          .from("resultados")
-          .select("id, tiempo_final, timestamp_meta, created_at, atleta_id, atletas(dorsal, nombres, apellidos)")
-          .eq("evento_id", currentEventId)
-          .order("created_at", { ascending: false })
-          .limit(25);
+        let data, error;
+        if (window.dataSource === 'local') {
+          // Nota: En local podríamos necesitar un endpoint específico para esto si los datos no vienen completos
+          // Por ahora usaremos la query simple de atletas como ejemplo o podrías añadir /api/get-recent-results
+          // Intentaré usar el endpoint de athletes si es para el buscador, pero para la tabla necesitamos resultados:
+          try {
+            const res = await fetch(`${window.apiBaseUrl}/api/get-ranking`); // Reusamos ranking para ver últimos
+            data = await res.json();
+          } catch (e) { error = e; }
+        } else {
+          const res = await supabase
+            .from("resultados")
+            .select("id, tiempo_final, timestamp_meta, created_at, atleta_id, atletas(dorsal, nombres, apellidos)")
+            .eq("evento_id", currentEventId)
+            .order("created_at", { ascending: false })
+            .limit(25);
+          data = res.data;
+          error = res.error;
+        }
 
         if (error) { console.error(error); return; }
 
@@ -496,14 +520,21 @@
 
           let error = null;
 
-          if (currentEditId) {
-            // UPDATE
-            const res = await supabase.from("resultados").update(payload).eq("id", currentEditId);
-            error = res.error;
+          if (window.dataSource === 'local') {
+            const res = await fetch(`${window.apiBaseUrl}/api/save-result`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(await res.text());
           } else {
-            // INSERT
-            const res = await supabase.from("resultados").insert(payload);
-            error = res.error;
+            if (currentEditId) {
+              const res = await supabase.from("resultados").update(payload).eq("id", currentEditId);
+              error = res.error;
+            } else {
+              const res = await supabase.from("resultados").insert(payload);
+              error = res.error;
+            }
           }
 
           // FALLBACK: Si falla por columna faltante (tiempo_ms), reintentar sin ella
@@ -544,10 +575,11 @@
         await loadAthletes();
         await loadRecentResults();
 
-        // Realtime: reflejar inserciones en esta pantalla también
+        // Realtime: reflejar cambios en esta pantalla (INSERT, UPDATE, DELETE)
         supabase
           .channel("results-live-local")
-          .on("postgres_changes", { event: "INSERT", schema: "public", table: "resultados" }, async () => {
+          .on("postgres_changes", { event: "*", schema: "public", table: "resultados" }, async (payload) => {
+            console.log("📡 Cambio detectado en resultados:", payload.eventType);
             await loadRecentResults();
           })
           .subscribe();
