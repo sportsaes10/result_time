@@ -350,7 +350,8 @@
             }
           }
           // If the field is a select and has options, update them
-          if (f.type === 'select' && input && input.tagName === 'SELECT') {
+          // Excluir "genero" porque tiene constraint en BD que solo acepta M/F/X
+          if (f.type === 'select' && input && input.tagName === 'SELECT' && f.key !== 'genero') {
             input.innerHTML = ""; // Clear existing options
             const defaultOpt = document.createElement("option");
             defaultOpt.value = "";
