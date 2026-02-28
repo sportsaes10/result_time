@@ -199,12 +199,12 @@
         <table class="min-w-full text-sm">
           <thead class="text-slate-300">
             <tr class="[&>th]:py-2 [&>th]:px-3 text-left border-b border-slate-800">
-              <th>Dorsal</th>
-              <th>Nombres</th>
-              <th>Apellidos</th>
-              <th>Género</th>
-              <th>Categoría</th>
-              <th>Club</th>
+              <th id="th-dorsal">Dorsal</th>
+              <th id="th-nombres">Nombres</th>
+              <th id="th-apellidos">Apellidos</th>
+              <th id="th-genero">Género</th>
+              <th id="th-categoria">Categoría</th>
+              <th id="th-club">Club</th>
               <th>Fecha</th>
               <th>Acción</th>
             </tr>
@@ -331,6 +331,16 @@
             const label = input.closest("label");
             if (label) {
               label.classList.remove("hidden");
+              // Actualizar el texto del label si viene en la configuración
+              const labelSpan = label.querySelector("span");
+              if (labelSpan && f.label) {
+                labelSpan.textContent = f.label + (f.required ? " *" : "");
+              }
+              // Actualizar también el header de la tabla si existe
+              const th = document.getElementById(`th-${f.key}`);
+              if (th && f.label) {
+                th.textContent = f.label;
+              }
               // Apply required attribute if specified
               if (f.required) {
                 input.required = true;
