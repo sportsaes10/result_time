@@ -267,27 +267,21 @@
             tdAtleta.appendChild(divClub);
             tr.appendChild(tdAtleta);
 
-            // 4. Dynamic Cells
-            configFields.forEach((f) => {
-              if (
-                f.show_in_ranking &&
-                !["dorsal", "nombres", "apellidos"].includes(f.key)
-              ) {
-                let val = flatAtleta[f.key];
-                if (val === undefined || val === null) val = "-";
+            // 4. Género (columna fija)
+            const tdGenero = document.createElement("td");
+            const spanGenero = document.createElement("span");
+            spanGenero.className = "bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium";
+            spanGenero.textContent = a.genero || "-";
+            tdGenero.appendChild(spanGenero);
+            tr.appendChild(tdGenero);
 
-                const td = document.createElement("td");
-                if (f.key === "categoria" || f.key === "genero") {
-                   const span = document.createElement("span");
-                   span.className = "bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium";
-                   span.textContent = val;
-                   td.appendChild(span);
-                } else {
-                   td.textContent = val;
-                }
-                tr.appendChild(td);
-              }
-            });
+            // 5. Categoría (columna fija)
+            const tdCategoria = document.createElement("td");
+            const spanCategoria = document.createElement("span");
+            spanCategoria.className = "bg-slate-800 px-2 py-0.5 rounded text-xs text-slate-300 font-medium";
+            spanCategoria.textContent = a.categoria || "-";
+            tdCategoria.appendChild(spanCategoria);
+            tr.appendChild(tdCategoria);
 
             // 5. Tiempo
             const tdTime = document.createElement("td");
@@ -451,7 +445,7 @@
               }
             });
 
-            // Render Headers
+            // Render Headers (columnas fijas simplificadas)
             let html = `<th>Pos</th>`;
             // Dorsal Logic
             const dorsalField = configFields.find((f) => f.key === "dorsal");
@@ -464,15 +458,8 @@
               html += `<th id="th-dorsal">Dorsal</th>`;
             }
             html += `<th>Atleta</th>`;
-            configFields.forEach((f) => {
-              if (
-                f.active !== false &&
-                f.show_in_ranking &&
-                !["dorsal", "nombres", "apellidos"].includes(f.key)
-              ) {
-                html += `<th>${f.label}</th>`;
-              }
-            });
+            html += `<th>Género</th>`;
+            html += `<th>Categoría</th>`;
             html += `<th>Tiempo</th><th>Fecha</th>`;
             tableHeader.innerHTML = html;
 
