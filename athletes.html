@@ -182,11 +182,19 @@
     </div>
 
     <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
-      <div class="flex items-center gap-2">
-        <div class="font-bold">Últimos atletas</div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="font-bold">Atletas registrados</div>
+        <span id="totalCount" class="text-sm text-slate-400"></span>
         <button id="reload"
           class="ml-auto bg-slate-100 text-slate-900 rounded-xl px-3 py-2 text-sm font-semibold">Refrescar</button>
       </div>
+
+      <!-- Buscador en tabla -->
+      <div class="mt-3">
+        <input id="tableSearch" type="text" placeholder="Buscar en la tabla (dorsal, nombre, categoría...)"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+      </div>
+
       <div class="mt-3 overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="text-slate-300">
@@ -203,6 +211,28 @@
           </thead>
           <tbody id="athletesBody" class="divide-y divide-slate-800"></tbody>
         </table>
+      </div>
+
+      <!-- Controles de paginación -->
+      <div id="paginationControls" class="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-400">Mostrar:</span>
+          <select id="pageSize" class="bg-slate-800 text-slate-100 rounded-lg px-2 py-1 text-sm border-0">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="ALL">Todos</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="prevPage" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            ← Anterior
+          </button>
+          <span id="pageInfo" class="text-sm text-slate-400">Página 1 de 1</span>
+          <button id="nextPage" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            Siguiente →
+          </button>
+        </div>
       </div>
     </div>
     </div>
@@ -411,11 +441,25 @@
 
       let currentEditId = null;
 
+      // Variables de paginación
+      let currentPage = 1;
+      let pageSize = 20;
+      let totalAthletes = 0;
+      let allAthletesData = []; // Cache de todos los atletas
+      let filteredData = []; // Datos filtrados por búsqueda
+
+      const totalCountEl = document.getElementById("totalCount");
+      const pageSizeSelect = document.getElementById("pageSize");
+      const prevPageBtn = document.getElementById("prevPage");
+      const nextPageBtn = document.getElementById("nextPage");
+      const pageInfoEl = document.getElementById("pageInfo");
+      const tableSearchInput = document.getElementById("tableSearch");
+
       function fmtDate(iso) { return new Date(iso).toLocaleString("es-CO", { hour12: false }); }
 
       async function loadAthletes() {
         if (!currentEventId) return;
-        
+
         let data, error;
         if (window.dataSource === 'local') {
           try {
@@ -423,20 +467,73 @@
             data = await res.json();
           } catch (e) { error = e; }
         } else {
+          // Cargar TODOS los atletas del evento (sin límite)
           const res = await supabase
             .from("atletas")
-            .select("*")
+            .select("*", { count: 'exact' })
             .eq("evento_id", currentEventId)
-            .order("created_at", { ascending: false })
-            .limit(20);
+            .order("created_at", { ascending: false });
           data = res.data;
           error = res.error;
+          totalAthletes = res.count || 0;
         }
 
         if (error) { console.error(error); return; }
 
+        allAthletesData = data || [];
+        totalAthletes = allAthletesData.length;
+        filteredData = [...allAthletesData];
+
+        // Actualizar contador total
+        totalCountEl.textContent = `(${totalAthletes} registrados)`;
+
+        // Renderizar página actual
+        renderAthletesPage();
+      }
+
+      function filterAthletes(query) {
+        if (!query.trim()) {
+          filteredData = [...allAthletesData];
+        } else {
+          const q = query.toLowerCase().trim();
+          filteredData = allAthletesData.filter(a => {
+            const dorsal = (a.dorsal || "").toLowerCase();
+            const nombres = (a.nombres || "").toLowerCase();
+            const apellidos = (a.apellidos || "").toLowerCase();
+            const categoria = (a.categoria || "").toLowerCase();
+            const club = (a.club || "").toLowerCase();
+            const doc = (a.numero_documento || "").toLowerCase();
+            return dorsal.includes(q) || nombres.includes(q) || apellidos.includes(q) ||
+                   categoria.includes(q) || club.includes(q) || doc.includes(q);
+          });
+        }
+        currentPage = 1; // Reset a primera página
+        renderAthletesPage();
+      }
+
+      function renderAthletesPage() {
+        const totalFiltered = filteredData.length;
+        const showAll = pageSize === 'ALL' || pageSize >= totalFiltered;
+        const itemsPerPage = showAll ? totalFiltered : parseInt(pageSize);
+        const totalPages = showAll ? 1 : Math.ceil(totalFiltered / itemsPerPage);
+
+        // Asegurar página válida
+        if (currentPage > totalPages) currentPage = totalPages || 1;
+        if (currentPage < 1) currentPage = 1;
+
+        // Calcular rango
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = showAll ? totalFiltered : Math.min(startIdx + itemsPerPage, totalFiltered);
+        const pageData = filteredData.slice(startIdx, endIdx);
+
+        // Actualizar info de paginación
+        pageInfoEl.textContent = `Página ${currentPage} de ${totalPages || 1} (${totalFiltered} resultados)`;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+
+        // Renderizar filas
         athletesBody.innerHTML = "";
-        (data || []).forEach(a => {
+        pageData.forEach(a => {
           const tr = document.createElement("tr");
           tr.className = "[&>td]:py-2 [&>td]:px-3";
 
@@ -788,6 +885,39 @@
       });
 
       document.getElementById("reload").addEventListener("click", loadAthletes);
+
+      // Event listeners de paginación
+      pageSizeSelect.addEventListener("change", (e) => {
+        pageSize = e.target.value === 'ALL' ? 'ALL' : parseInt(e.target.value);
+        currentPage = 1;
+        renderAthletesPage();
+      });
+
+      prevPageBtn.addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderAthletesPage();
+        }
+      });
+
+      nextPageBtn.addEventListener("click", () => {
+        const totalFiltered = filteredData.length;
+        const itemsPerPage = pageSize === 'ALL' ? totalFiltered : parseInt(pageSize);
+        const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderAthletesPage();
+        }
+      });
+
+      // Búsqueda en tabla con debounce
+      let searchDebounceTable;
+      tableSearchInput.addEventListener("input", (e) => {
+        clearTimeout(searchDebounceTable);
+        searchDebounceTable = setTimeout(() => {
+          filterAthletes(e.target.value);
+        }, 300);
+      });
 
       // --- LÓGICA DE CARGA MASIVA ---
       const excelFileInput = document.getElementById("excelFile");
