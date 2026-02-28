@@ -457,6 +457,14 @@
 
       function fmtDate(iso) { return new Date(iso).toLocaleString("es-CO", { hour12: false }); }
 
+      // Normalizar género a M/F/X (la BD tiene constraint que solo acepta estos valores)
+      function normalizeGenero(genero) {
+        const g = (genero || "M").toString().trim().toLowerCase();
+        if (g === "f" || g.startsWith("fem")) return "F";
+        if (g === "x" || g === "otro") return "X";
+        return "M"; // Default para M, Masculino, o cualquier otro
+      }
+
       async function loadAthletes() {
         if (!currentEventId) return;
 
@@ -616,7 +624,7 @@
         document.getElementById("departamento").value = a.departamento || "";
         document.getElementById("municipio").value = a.municipio || "";
         document.getElementById("localidad").value = a.localidad || "";
-        document.getElementById("genero").value = a.genero || "M";
+        document.getElementById("genero").value = normalizeGenero(a.genero);
         document.getElementById("categoria").value = a.categoria || "";
         document.getElementById("club").value = a.club || "";
         document.getElementById("email").value = a.email || "";
@@ -788,7 +796,7 @@
         document.getElementById("departamento").value = a.departamento || "";
         document.getElementById("municipio").value = a.municipio || "";
         document.getElementById("localidad").value = a.localidad || "";
-        document.getElementById("genero").value = a.genero || "M";
+        document.getElementById("genero").value = normalizeGenero(a.genero);
         document.getElementById("categoria").value = a.categoria || ""; // Puede cambiar, pero es buen default
         document.getElementById("club").value = a.club || "";
         document.getElementById("email").value = a.email || "";
