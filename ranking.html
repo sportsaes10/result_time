@@ -447,15 +447,16 @@
 
             // Render Headers (columnas fijas simplificadas)
             let html = `<th>Pos</th>`;
-            // Dorsal Logic
+            // Dorsal Logic - usar label de configuración si existe
             const dorsalField = configFields.find((f) => f.key === "dorsal");
+            const dorsalLabel = dorsalField?.label || "Dorsal";
             if (dorsalField && dorsalField.active === false) {
               const style = document.createElement("style");
               style.innerHTML = `#th-dorsal, td:nth-child(2) { display: none !important; }`;
               document.head.appendChild(style);
-              html += `<th id="th-dorsal" class="hidden">Dorsal</th>`;
+              html += `<th id="th-dorsal" class="hidden">${dorsalLabel}</th>`;
             } else {
-              html += `<th id="th-dorsal">Dorsal</th>`;
+              html += `<th id="th-dorsal">${dorsalLabel}</th>`;
             }
             html += `<th>Atleta</th>`;
             html += `<th>Género</th>`;
