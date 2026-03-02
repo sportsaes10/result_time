@@ -976,8 +976,8 @@
             }
 
             importLog.textContent += `Se encontraron ${json.length} filas. Preparando el lote...\n`;
-            
-            const batch = [];
+
+            let batch = [];
             let errors = 0;
 
             for (let i = 0; i < json.length; i++) {
@@ -1042,8 +1042,49 @@
                return;
             }
 
-            importLog.textContent += `Se procesarán ${batch.length} registros válidos (${errors} ignorados por falta de datos).\n`;
+            importLog.textContent += `Se encontraron ${batch.length} registros válidos del Excel.\n`;
+            importLog.textContent += `Verificando duplicados...\n`;
+
+            // Obtener atletas existentes para evitar duplicados
+            const { data: existingAthletes, error: fetchError } = await supabase
+              .from('atletas')
+              .select('numero_documento, dorsal')
+              .eq('evento_id', currentEventId);
+
+            if (fetchError) {
+              importLog.textContent += `⚠️ Error verificando duplicados: ${fetchError.message}\n`;
+            }
+
+            // Crear set de documentos existentes para búsqueda rápida
+            const existingDocs = new Set((existingAthletes || []).map(a => a.numero_documento?.toString()));
+            const existingDorsals = new Set((existingAthletes || []).map(a => a.dorsal?.toString()));
+
+            // Filtrar solo atletas nuevos (no duplicados)
+            const newAthletes = batch.filter(a => {
+              const isDuplicate = existingDocs.has(a.numero_documento?.toString()) ||
+                                  existingDorsals.has(a.dorsal?.toString());
+              return !isDuplicate;
+            });
+
+            const duplicatesCount = batch.length - newAthletes.length;
+
+            if (duplicatesCount > 0) {
+              importLog.textContent += `ℹ️ ${duplicatesCount} atletas ya registrados (serán omitidos).\n`;
+            }
+
+            if (newAthletes.length === 0) {
+              importStatus.textContent = "ℹ️ Todos los atletas ya están registrados";
+              importLog.textContent += `\nNo hay atletas nuevos para importar.\n`;
+              importBtn.disabled = false;
+              importBtn.textContent = "Importar";
+              return;
+            }
+
+            importLog.textContent += `Se importarán ${newAthletes.length} atletas nuevos (${errors} ignorados por falta de datos, ${duplicatesCount} duplicados).\n`;
             importLog.textContent += `Enviando a la base de datos...\n`;
+
+            // Usar solo atletas nuevos (sin duplicados)
+            batch = newAthletes;
 
             // Enviar por CHUNKS por si son muchos
             const chunkSize = 50;
