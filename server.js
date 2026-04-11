@@ -4,8 +4,12 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
-const PORT = 3005;
+// Cargar variables de entorno si existen
+require('dotenv').config();
+
+const PORT = 3006;
 
 const mimeTypes = {
     '.html': 'text/html',
@@ -21,6 +25,28 @@ const mimeTypes = {
 
 const server = http.createServer((req, res) => {
     console.log(`${req.method} ${req.url}`);
+
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Endpoint seguro para obtener configuración de Supabase desde variables de entorno
+    if (req.url === '/api/config' && req.method === 'GET') {
+        const config = {
+            supabaseUrl: process.env.SUPABASE_URL,
+            supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(config), 'utf-8');
+        return;
+    }
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+    }
 
     let filePath = '.' + req.url;
     if (filePath === './') {
