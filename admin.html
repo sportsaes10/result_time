@@ -183,7 +183,17 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      while (!window.supabaseClient) await new Promise(r => setTimeout(r, 100));
+      // Esperar supabaseClient con timeout de 10 segundos
+      const start = Date.now();
+      while (!window.supabaseClient) {
+        if (Date.now() - start > 10000) {
+          document.getElementById("loginError").textContent = "❌ Error de conexión: No se pudo conectar con el servidor. Verifica la configuración.";
+          document.getElementById("loginError").classList.remove("hidden");
+          console.error("Timeout: window.supabaseClient no se inicializó. Verifica /api/config");
+          return;
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
       const supabase = window.supabaseClient;
 
       // Elementos UI
@@ -524,7 +534,6 @@
         }
       });
 
-      await loadConfig();
     });
   </script>
 </body>
