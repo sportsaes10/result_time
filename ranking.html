@@ -151,8 +151,8 @@
                 "id, atleta_id, tiempo_final, tiempo_ms, timestamp_meta, created_at, atletas(dorsal, nombres, apellidos, genero, categoria, datos_adicionales)",
               )
               .eq("evento_id", currentEventId)
-              .eq("estado", "finalizado")
-              .order("tiempo_ms", { ascending: true })
+              .or("estado.eq.finalizado,estado.is.null")
+              .order("tiempo_ms", { ascending: true, nullsFirst: false })
               .order("created_at", { ascending: false });
             data = res.data;
             error = res.error;
