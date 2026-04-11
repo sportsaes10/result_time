@@ -206,7 +206,7 @@
               <th id="th-categoria">Categoría</th>
               <th id="th-club">Club</th>
               <th>Fecha</th>
-              <th>Acción</th>
+              <th class="sticky right-0 bg-slate-900 text-right">Acción</th>
             </tr>
           </thead>
           <tbody id="athletesBody" class="divide-y divide-slate-800"></tbody>
@@ -597,23 +597,27 @@
           tr.appendChild(createCell(fmtDate(a.created_at), "text-slate-300"));
 
           const tdAction = document.createElement("td");
-          tdAction.className = "flex gap-1";
+          tdAction.className = "sticky right-0 bg-slate-950 text-right py-2 px-2";
+
+          const btnWrap = document.createElement("div");
+          btnWrap.className = "flex gap-1 justify-end";
 
           const btnEdit = document.createElement("button");
           btnEdit.className = "bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs edit-btn";
           btnEdit.dataset.athlete = athleteData;
           btnEdit.textContent = "✏️";
           btnEdit.title = "Editar";
-          tdAction.appendChild(btnEdit);
+          btnWrap.appendChild(btnEdit);
 
           const btnDelete = document.createElement("button");
           btnDelete.className = "bg-red-900/50 hover:bg-red-800 text-red-300 px-2 py-1 rounded text-xs delete-btn";
           btnDelete.dataset.id = a.id;
           btnDelete.dataset.name = `${a.nombres} ${a.apellidos}`;
-          btnDelete.textContent = "❌";
+          btnDelete.textContent = "🗑";
           btnDelete.title = "Eliminar";
-          tdAction.appendChild(btnDelete);
+          btnWrap.appendChild(btnDelete);
 
+          tdAction.appendChild(btnWrap);
           tr.appendChild(tdAction);
           athletesBody.appendChild(tr);
         });
