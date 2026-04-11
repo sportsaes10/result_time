@@ -8,7 +8,57 @@
 
 ### ✅ Soluciones Implementadas
 
-#### 1. **Actualización de Credenciales de Supabase** [commit: e1b2c9f]
+#### PARTE 2: MEJORAS DE SEGURIDAD 🔒 [commit: 2f20088]
+
+##### **Remover Credenciales Hardcodeadas**
+- **Problema:** Las credenciales estaban en `config.js` (versionado en GitHub)
+- **Solución:** Mover a variables de entorno
+- **Cambios:**
+
+1. `config.js` - Ahora carga credenciales de forma segura:
+   ```javascript
+   // ANTES: Credenciales hardcodeadas (inseguro)
+   const SUPABASE_URL = "https://...";
+   const SUPABASE_ANON_KEY = "sb_...";
+   
+   // DESPUÉS: Fetch desde /api/config (seguro)
+   const response = await fetch('/api/config');
+   window.SUPABASE_URL = response.json().supabaseUrl;
+   ```
+
+2. `server.js` - Nuevo endpoint `/api/config`:
+   ```javascript
+   // Lee credenciales desde env vars y las sirve al navegador
+   if (req.url === '/api/config' && req.method === 'GET') {
+       const config = {
+           supabaseUrl: process.env.SUPABASE_URL,
+           supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+       };
+   }
+   ```
+
+3. `package.json` - Agregada dependencia:
+   ```json
+   { "dependencies": { "dotenv": "^16.6.1" } }
+   ```
+
+4. `.env.example` - Template para documentar variables necesarias
+5. `.env.local` - Archivo local con credenciales reales (en .gitignore)
+6. `.gitignore` - Actualizado para excluir `.env*` (excepto .env.example)
+
+**Estado:** ✅ Credenciales ya no están en el código versionado
+
+##### **Documento de Seguridad**
+- Creado `SECURITY_SETUP.md` con:
+  - Guía de setup para desarrollo local
+  - Instrucciones para Vercel
+  - Diagrama de flujo seguro
+  - Checklist de verificación
+  - Troubleshooting
+
+---
+
+#### PARTE 1: Actualización de Credenciales de Supabase [commit: e1b2c9f]
 - **Archivo:** `config.js`
 - **Cambios:** Reemplazadas credenciales placeholder con credenciales reales de Supabase
   - Antes: `NUEVA_URL_DE_SUPABASE` y `NUEVA_ANON_KEY_DE_SUPABASE` (no funcionales)
@@ -61,20 +111,43 @@
 
 ### 📋 Próximos Pasos Recomendados
 
-1. **Verificar en producción:**
-   - Acceder a https://result-time.vercel.app (o tu URL)
+#### INMEDIATO - Configuración en Vercel
+
+1. **Agregar Variables de Entorno en Vercel:**
+   - Ve a: https://vercel.com/dashboard → tu proyecto `result-time`
+   - Settings → Environment Variables
+   - Agregar: `SUPABASE_URL` = `https://xqppzsyhvlvoowmdgsdm.supabase.co`
+   - Agregar: `SUPABASE_ANON_KEY` = (tu clave)
+   - Aplicar a: Production (y Preview si quieres)
+   - Vercel re-deployará automáticamente
+
+2. **Verificar en Producción:**
+   - Acceder a https://result-time.vercel.app
    - Abrir consola del navegador (F12)
-   - Verificar que no haya errores de CORS o autenticación
+   - Buscar: `"✅ Configuración cargada desde servidor"`
+   - Verificar que NO hay errores de credenciales
 
-2. **Si hay errores:**
-   - Revisar logs en Vercel dashboard
-   - Verificar que las tablas `atletas` y `resultados` existan en Supabase
-   - Validar permisos de RLS (Row Level Security) en Supabase
+#### Testing Local
 
-3. **Testing:**
+1. **Setup Desarrollo Local:**
+   ```bash
+   npm install  # Instalar dotenv
+   node server.js  # Ejecutar servidor
+   # Abrir http://localhost:3006
+   ```
+
+2. **Verificar Endpoint `/api/config`:**
+   - Abrir: http://localhost:3006/api/config
+   - Debe devolver: `{"supabaseUrl":"...", "supabaseAnonKey":"..."}`
+
+3. **Testing de Funcionalidad:**
    - Probar registro de atletas
    - Probar registro de tiempos
-   - Verificar que el ranking se actualice en tiempo real
+   - Verificar que el ranking se actualice
+
+#### Documentación Completa
+- Ver `SECURITY_SETUP.md` para guía detallada
+- Ver `.env.example` para variables necesarias
 
 ### 🔐 Información Sensible
 ⚠️ **Las credenciales reales de Supabase están en `config.js`**
