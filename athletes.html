@@ -866,6 +866,36 @@
 
         let error = null;
 
+        // Validar duplicados antes de insertar (solo en modo creación, no edición)
+        if (!currentEditId && window.dataSource !== 'local') {
+          const dorsal = payload.dorsal;
+          const docNum = payload.numero_documento;
+
+          // Construir query de duplicados
+          let dupQuery = supabase.from("atletas").select("id, dorsal, numero_documento").eq("evento_id", currentEventId);
+
+          if (dorsal && docNum) {
+            dupQuery = dupQuery.or(`dorsal.eq.${dorsal},numero_documento.eq.${docNum}`);
+          } else if (dorsal) {
+            dupQuery = dupQuery.eq("dorsal", dorsal);
+          } else if (docNum) {
+            dupQuery = dupQuery.eq("numero_documento", docNum);
+          }
+
+          const { data: dupData } = await dupQuery.limit(1);
+
+          if (dupData && dupData.length > 0) {
+            const dup = dupData[0];
+            let reason = [];
+            if (dorsal && dup.dorsal === dorsal) reason.push(`dorsal "${dorsal}"`);
+            if (docNum && dup.numero_documento === docNum) reason.push(`documento "${docNum}"`);
+            msg.innerHTML = `❌ Ya existe un atleta con ${reason.join(" y ")} en este evento.`;
+            msg.className = "text-red-400 text-sm font-semibold";
+            submitBtn.disabled = false;
+            return;
+          }
+        }
+
         if (window.dataSource === 'local') {
           try {
             const res = await fetch(`${window.apiBaseUrl}/api/save-athlete`, {
