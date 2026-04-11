@@ -1045,25 +1045,49 @@
             importLog.textContent += `Se encontraron ${batch.length} registros válidos del Excel.\n`;
             importLog.textContent += `Verificando duplicados...\n`;
 
-            // Obtener atletas existentes para evitar duplicados
+            // Paso 1: Eliminar duplicados DENTRO del propio Excel (mismo número de documento)
+            const seenInBatch = new Set();
+            const batchSinDuplicadosInternos = [];
+            let dupInternos = 0;
+            for (const a of batch) {
+              const key = (a.numero_documento || "").toString().trim().toLowerCase();
+              if (seenInBatch.has(key)) {
+                dupInternos++;
+              } else {
+                seenInBatch.add(key);
+                batchSinDuplicadosInternos.push(a);
+              }
+            }
+            if (dupInternos > 0) {
+              importLog.textContent += `ℹ️ ${dupInternos} filas duplicadas dentro del archivo Excel (omitidas).\n`;
+            }
+            batch = batchSinDuplicadosInternos;
+
+            // Paso 2: Obtener atletas existentes para evitar duplicados contra la DB
+            // Usamos limit alto para no perder registros
             const { data: existingAthletes, error: fetchError } = await supabase
               .from('atletas')
               .select('numero_documento, dorsal')
-              .eq('evento_id', currentEventId);
+              .eq('evento_id', currentEventId)
+              .limit(10000);
 
             if (fetchError) {
               importLog.textContent += `⚠️ Error verificando duplicados: ${fetchError.message}\n`;
             }
 
-            // Crear set de documentos existentes para búsqueda rápida
-            const existingDocs = new Set((existingAthletes || []).map(a => a.numero_documento?.toString()));
-            const existingDorsals = new Set((existingAthletes || []).map(a => a.dorsal?.toString()));
+            // Crear set de documentos existentes para búsqueda rápida (normalizado)
+            const existingDocs = new Set(
+              (existingAthletes || []).map(a => (a.numero_documento || "").toString().trim().toLowerCase())
+            );
+            const existingDorsals = new Set(
+              (existingAthletes || []).map(a => (a.dorsal || "").toString().trim().toLowerCase())
+            );
 
-            // Filtrar solo atletas nuevos (no duplicados)
+            // Filtrar solo atletas nuevos (no duplicados contra DB)
             const newAthletes = batch.filter(a => {
-              const isDuplicate = existingDocs.has(a.numero_documento?.toString()) ||
-                                  existingDorsals.has(a.dorsal?.toString());
-              return !isDuplicate;
+              const doc = (a.numero_documento || "").toString().trim().toLowerCase();
+              const dors = (a.dorsal || "").toString().trim().toLowerCase();
+              return !existingDocs.has(doc) && !existingDorsals.has(dors);
             });
 
             const duplicatesCount = batch.length - newAthletes.length;
