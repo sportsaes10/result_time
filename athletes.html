@@ -349,25 +349,39 @@
               }
             }
           }
-          // If the field is a select and has options, update them
-          // Excluir "genero" porque tiene constraint en BD que solo acepta M/F/X
-          if (f.type === 'select' && input && input.tagName === 'SELECT' && f.key !== 'genero') {
-            input.innerHTML = ""; // Clear existing options
-            const defaultOpt = document.createElement("option");
-            defaultOpt.value = "";
-            defaultOpt.text = "Seleccionar...";
-            defaultOpt.disabled = true;
-            defaultOpt.selected = true;
-            input.appendChild(defaultOpt);
+          // Si el campo tiene opciones, actualizar el SELECT o DATALIST correspondiente
+          // Excluir "genero" porque tiene constraint en BD que solo acepta M/F/Masculino/Femenino
+          if (f.type === 'select' && f.options && f.key !== 'genero') {
+            const opts = Array.isArray(f.options) ? f.options : (f.options || "").split(",").map(o => o.trim()).filter(Boolean);
 
-            const opts = Array.isArray(f.options) ? f.options : (f.options || "").split(",");
-            opts.forEach(o => {
-              const optTag = document.createElement("option");
-              const val = typeof o === 'string' ? o.trim() : o;
-              optTag.value = val;
-              optTag.text = val;
-              input.appendChild(optTag);
-            });
+            if (input && input.tagName === 'SELECT') {
+              // Campo es un <select> normal
+              input.innerHTML = "";
+              const defaultOpt = document.createElement("option");
+              defaultOpt.value = "";
+              defaultOpt.text = "Seleccionar...";
+              defaultOpt.disabled = true;
+              defaultOpt.selected = true;
+              input.appendChild(defaultOpt);
+              opts.forEach(o => {
+                const optTag = document.createElement("option");
+                optTag.value = o;
+                optTag.text = o;
+                input.appendChild(optTag);
+              });
+            } else if (input && input.getAttribute('list')) {
+              // Campo es un <input list="..."> (datalist)
+              const datalistId = input.getAttribute('list');
+              const datalist = document.getElementById(datalistId);
+              if (datalist) {
+                datalist.innerHTML = "";
+                opts.forEach(o => {
+                  const optTag = document.createElement("option");
+                  optTag.value = o;
+                  datalist.appendChild(optTag);
+                });
+              }
+            }
           }
         });
       }
